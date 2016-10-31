@@ -1,14 +1,14 @@
 shell.prefix("source config.sh;")
 
-configfile: "config.json"
+configfile: "config.yaml"
 
 import os
 import glob
 import csv
 
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
-TOPGROUP = "Rhesus Chimp Human Gor".split()
-TYPES    = "flnc nfl".split()
+TOPGROUP = ["adult_brain"]
+TYPES    = ["flnc", "nfl"]
 
 NAMES  = []
 LOOKUP = {}
