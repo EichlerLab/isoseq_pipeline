@@ -3,8 +3,6 @@ shell.prefix("source config.sh;")
 configfile: "config.yaml"
 
 import os
-import glob
-import csv
 
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
 TOPGROUP = ["adult_brain"]
@@ -22,8 +20,12 @@ def _get_files_by_name(wildcards):
     print(wildcards.names, LOOKUP[wildcards.names], "\t", config[LOOKUP[wildcards.names]][wildcards.names])
     return config[LOOKUP[wildcards.names]][wildcards.names]
 
+localrules: all
+
 rule all  :
-     input  : expand("ice_clustering/{top}/{top}.input.fofn", top=TOPGROUP) , expand("merged_trimmed/{top}/isoseq_{type}.fasta",type=TYPES,top=TOPGROUP) , expand("merged_trimmed/{top}/isoseq_flnc.fasta.fai",top=TOPGROUP)
+     input  : expand("ice_clustering/{top}/{top}.input.fofn", top=TOPGROUP),
+              expand("merged_trimmed/{top}/isoseq_{type}.fasta",type=TYPES,top=TOPGROUP),
+              expand("merged_trimmed/{top}/isoseq_flnc.fasta.fai",top=TOPGROUP)
 
 rule fofn   :
      input  : expand("ice_clustering/{{top}}/{{top}}_{type}.fastq", type=TYPES)
@@ -35,7 +37,10 @@ rule faTofq :
      input  : READS="merged_trimmed/{top}/isoseq_{type}.fasta"
      output : "ice_clustering/{top}/{top}_{type}.fastq"
      params :  sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
-     shell  : "cd ice_clustering/{wildcards.top} ; ln -s ../../{input.READS} {wildcards.top}_{wildcards.type}.fasta ; ~zevk/projects/cDNA_Cupcake/sequence/fa2fq.py {wildcards.top}_{wildcards.type}.fasta"
+     shell  : 
+        """cd ice_clustering/{wildcards.top}
+           ln -s ../../{input.READS} {wildcards.top}_{wildcards.type}.fasta
+           scripts/fa2fq.py {wildcards.top}_{wildcards.type}.fasta"""
 
 rule catlens :
      input  : STATS=expand("primer_trimmed/{names}/isoseq_flnc.fasta.fai", names=NAMES)
@@ -63,10 +68,15 @@ rule lens   :
      shell  :  "samtools faidx {input}"
 
 rule trim   :
-     input  : FAS="post_pbccs_fasta/{names}.fa", BCC="do_barcode.sh"
+     input  : FAS="post_pbccs_fasta/{names}.fa", BCC="scripts/do_barcode.sh"
      output : "primer_trimmed/{names}/isoseq_flnc.fasta", "primer_trimmed/{names}/isoseq_nfl.fasta"
      params :  sge_opts="-l mfree=20G -l h_rt=4:00:00 -q eichler-short.q -V -cwd"
-     shell  : "cd primer_trimmed/{wildcards.names} ; rm -rf * ; ln -s ../../{input.FAS} ccs.fasta ; cp ../../{input.BCC} . ; source {input.BCC}"
+     shell  : 
+        """cd primer_trimmed/{wildcards.names}
+           rm -rf *
+           ln -s ../../{input.FAS} ccs.fasta
+           cp ../../{input.BCC} .
+           source {input.BCC}"""
 
 rule bam2fa :
      input  : BAM="pbccs_results/{names}.pbccs.bam", XML="pbccs_results/{names}.pbccs.consensusreadset.xml"
