@@ -16,6 +16,9 @@ for i in config.keys():
         LOOKUP[j] = i
         NAMES.append(j)
 
+if not os.path.exists("log"):
+    os.makedirs("log")
+
 def _get_files_by_name(wildcards):
     print(wildcards.names, LOOKUP[wildcards.names], "\t", config[LOOKUP[wildcards.names]][wildcards.names])
     return config[LOOKUP[wildcards.names]][wildcards.names]
@@ -71,12 +74,14 @@ rule trim   :
      input  : FAS="post_pbccs_fasta/{names}.fa", BCC="scripts/do_barcode.sh"
      output : "primer_trimmed/{names}/isoseq_flnc.fasta", "primer_trimmed/{names}/isoseq_nfl.fasta"
      params :  sge_opts="-l mfree=20G -l h_rt=4:00:00 -q eichler-short.q -V -cwd"
+     shadow : True
      shell  : 
-        """cd primer_trimmed/{wildcards.names}
-           rm -rf *
-           ln -s ../../{input.FAS} ccs.fasta
-           cp ../../{input.BCC} .
-           source {input.BCC}"""
+        "python scripts/fluid_barcode_identification.py --reads_fn {input.FAS} "
+                "--primer_fn_forward data/custom_barcode_primers_forward.fa "
+                "--primer_fn_reverse custom_barcode_primers_reverse.fa "
+                "--ncpus 12 "
+                "--flnc_fn_out {output[0]} "
+                "--nfl_fn_out {output[1]}"
 
 rule bam2fa :
      input  : BAM="pbccs_results/{names}.pbccs.bam", XML="pbccs_results/{names}.pbccs.consensusreadset.xml"
