@@ -15,7 +15,8 @@ module load perl/5.14.2
 
 export BOOST_ROOT=$MOD_GSBOOST_DIR
 
-#export LD_LIBRARY_PATH=/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/lib:${TOP}/blasr_install/blasr/libcpp/alignment:${TOP}/blasr_install/blasr/libcpp/hdf:${TOP}/blasr_install/blasr/libcpp/pbdata:${TOP}/blasr_install/hdf5/hdf5-1.8.16-linux-centos6-x86_64-gcc447-shared/lib/:$LD_LIBRARY_PATH
 export SMRT_ROOT=/net/eichler/vol24/projects/sequencing/pacbio/software/smrtanalysis
+. $("$SMRT_ROOT/admin/bin/getsetupfile")
 export VENV_TOFU=~zevk/projects/VENV_TOFU
+source ${VENV_TOFU}/bin/activate
 export PATH=/net/eichler/vol8/home/zevk/projects/VENV_TOFU/bin:/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin:$PATH
