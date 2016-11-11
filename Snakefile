@@ -20,7 +20,6 @@ if not os.path.exists("log"):
     os.makedirs("log")
 
 def _get_files_by_name(wildcards):
-    print(wildcards.names, LOOKUP[wildcards.names], "\t", config[LOOKUP[wildcards.names]][wildcards.names])
     return config[LOOKUP[wildcards.names]][wildcards.names]
 
 localrules: all
@@ -31,19 +30,21 @@ rule all  :
               expand("merged_trimmed/{top}/isoseq_flnc.fasta.fai",top=TOPGROUP)
 
 rule fofn   :
-     input  : expand("ice_clustering/{{top}}/{{top}}_{type}.fastq", type=TYPES)
+     input  : expand("merged_trimmed/{{top}}/isoseq_{type}.fastq", type=TYPES)
      output : "ice_clustering/{top}/{top}.input.fofn"
      params : sge_opts="-l mfree=2G -l h_rt=00:20:00 -q eichler-short.q"
-     shell  : 'grep {wildcards.top} config.json | perl helper_scripts/fofn-gen.pl  > {output}'
+     run  : 
+        with open(output[0], "w") as out_fn:
+            for tg in TOPGROUP:
+                for group in config[tg]:
+                    print(config[tg][group], file=out_fn)
 
 rule faTofq :
      input  : READS="merged_trimmed/{top}/isoseq_{type}.fasta"
-     output : "ice_clustering/{top}/{top}_{type}.fastq"
+     output : "merged_trimmed/{top}/isoseq_{type}.fastq"
      params :  sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
      shell  : 
-        """cd ice_clustering/{wildcards.top}
-           ln -s ../../{input.READS} {wildcards.top}_{wildcards.type}.fasta
-           scripts/fa2fq.py {wildcards.top}_{wildcards.type}.fasta"""
+        "python scripts/fa2fq.py {input.READS}"
 
 rule catlens :
      input  : STATS=expand("primer_trimmed/{names}/isoseq_flnc.fasta.fai", names=NAMES)
@@ -55,7 +56,6 @@ rule catfa  :
      input  : FA=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta", names=NAMES), STATS=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta.len.txt", names=NAMES)
      output : "merged_trimmed/{top}/isoseq_{type}.fasta"
      params :  sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
-     #shell  : "cat primer_trimmed/{wildcards.top}*/isoseq_{wildcards.type}.fasta > {output}"
      shell : "cat {input.FA} >{output}"
 
 rule lenStat:
@@ -73,12 +73,12 @@ rule lens   :
 rule trim   :
      input  : FAS="post_pbccs_fasta/{names}.fa", BCC="scripts/do_barcode.sh"
      output : "primer_trimmed/{names}/isoseq_flnc.fasta", "primer_trimmed/{names}/isoseq_nfl.fasta"
-     params :  sge_opts="-l mfree=20G -l h_rt=4:00:00 -q eichler-short.q -V -cwd"
+     params :  sge_opts="-l mfree=20G -l h_rt=4:00:00 -q eichler-short.q -pe serial 12"
      shadow : True
      shell  : 
         "python scripts/fluid_barcode_identification.py --reads_fn {input.FAS} "
                 "--primer_fn_forward data/custom_barcode_primers_forward.fa "
-                "--primer_fn_reverse custom_barcode_primers_reverse.fa "
+                "--primer_fn_reverse data/custom_barcode_primers_reverse.fa "
                 "--ncpus 12 "
                 "--flnc_fn_out {output[0]} "
                 "--nfl_fn_out {output[1]}"
