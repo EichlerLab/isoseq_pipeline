@@ -80,6 +80,7 @@ class ClassifierException(PBTranscriptException):
     """
 
     def __init__(self, msg):
+        print msg # Necessary because PBTranscriptException isn't printing the error message
         PBTranscriptException.__init__(self, "classify", msg)
 
 
@@ -224,7 +225,7 @@ class Classifier(object):
             primers = {} # primer -> sequence, but can also contain the revcmp version with _revcmp suffix
             for r in reader:
                 if not r.name.startswith(prefix):
-                    errMsg = "Forward primer should start with f_, but saw:", r.name
+                    errMsg = "Primer should start with %s, but saw: %s" % (prefix, r.name)
                     raise ClassifierException(errMsg)
                 if len(r.sequence) > window_size:
                     errMsg = "Primer {n} has length {l} which is longer than {k}.".\
@@ -244,7 +245,6 @@ class Classifier(object):
         logging.info("Process primers for {case}.".
                      format(case=("finding primers" if not revcmp_primers
                                   else "detecting chimeras")))
-
         reader_f = FastaReader(primer_fn_forward)
         reader_r = FastaReader(primer_fn_reverse)
 
