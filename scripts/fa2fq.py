@@ -21,7 +21,7 @@ def fa2fq(input):
     except AssertionError:
         print >> sys.stderr, "Input {0} does not end with .fasta or .fa! Abort".format(input)
         sys.exit(-1)
-    output = input[:input.rfind('.')] + '.fastq'
+    output = input.replace(".fasta", "").replace(".fa", "") + '.fastq'
 
     f = open(output, 'w')
     for r in SeqIO.parse(open(input),'fasta'):
