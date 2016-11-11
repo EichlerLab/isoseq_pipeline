@@ -13,5 +13,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     opt = ChimeraDetectionOptions(50, 30, 100, 50, 150, True)
-    c = Classifier(opts=opt, reuse_dom=True, reads_fn=args.reads_fn, primer_fn_forward=args.primer_fn_forward, primer_fn_reverse=args.primer_fn_forward, cpus=args.ncpus, out_nfl_fn=args.nfl_fn_out, out_flnc_fn=args.flnc_fn_out)
+    c = Classifier(opts=opt, reuse_dom=True, reads_fn=args.reads_fn, primer_fn_forward=args.primer_fn_forward, primer_fn_reverse=args.primer_fn_reverse, cpus=args.ncpus, out_nfl_fn=args.nfl_fn_out, out_flnc_fn=args.flnc_fn_out)
     c.run()
