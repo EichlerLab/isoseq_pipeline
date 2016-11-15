@@ -1,4 +1,4 @@
-shell.prefix("source config.sh;")
+shell.prefix("source env.cfg; ")
 
 configfile: "config.yaml"
 
