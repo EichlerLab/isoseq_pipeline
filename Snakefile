@@ -8,10 +8,13 @@ BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/de
 TOPGROUP = ["adult_brain"]
 TYPES    = ["flnc", "nfl"]
 
+GMAP_DB = config["gmap_db"]
+GMAP_NAME = config["gmap_name"]
+
 NAMES  = []
 LOOKUP = {}
 
-for i in config.keys():
+for i in TOPGROUP:
     for j in config[i].keys():
         LOOKUP[j] = i
         NAMES.append(j)
@@ -24,10 +27,22 @@ def _get_files_by_name(wildcards):
 
 localrules: all
 
-rule all  :
-     input  : expand("ice_clustering/{top}/{top}.input.fofn", top=TOPGROUP),
-              expand("merged_trimmed/{top}/isoseq_{type}.fasta",type=TYPES,top=TOPGROUP),
-              expand("merged_trimmed/{top}/isoseq_flnc.fasta.fai",top=TOPGROUP)
+rule all:
+    input: expand("ice_clustering/{top}/final_consensus_sequence.{top}.fasta", top=TOPGROUP),
+
+rule ice_clustering:
+    input: flnc = "merged_trimmed/{top}/isoseq_flnc.fastq",
+           nfl = "merged_trimmed/{top}/isoseq_nfl.fastq",
+           bas_fofn = "ice_clustering/{top}/{top}.input.fofn",
+    output: "ice_clustering/{top}/final_consensus_sequence.{top}.fasta"
+    params: sge_opts = "-l mfree=4G", max_jobs=20, blasr_procs=4, gcon_procs=2
+    shell: # Full path to actual tofu_wrap script: /net/eichler/vol8/home/zevk/projects/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
+        'tofu_wrap.py --nfl_fa {input.nfl} --bas_fofn {input.bas_fofn} -d clusterOut --use_sge \
+                      --max_sge_jobs {params.max_jobs} --blasr_nproc {params.blasr_procs} \
+                      --gcon_nproc {params.gcon_procs} --quiver_nproc 2 --quiver \
+                      --bin_manual "(0,100)" --output_seqid_prefix {wildcards.top} \
+                      --sge_env_name serial --gmap_db {GMAP_DB} --gmap_name {GMAP_NAME} \
+                      {input.flnc} {output}'
 
 rule fofn   :
      input  : expand("merged_trimmed/{{top}}/isoseq_{type}.fastq", type=TYPES)
