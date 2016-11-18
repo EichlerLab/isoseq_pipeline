@@ -8,21 +8,48 @@ shell.prefix("source %s/env.orf_prediction.cfg; set -eo pipefail; " % SNAKEMAKE_
 if config == {}:
     configfile: "%s/config.orf_prediction.yaml" % SNAKEMAKE_DIR
 
-subworkflow tofu:
-    workdir: SNAKEMAKE_DIR
-    snakefile: "tofu.standard.snake"
-
 if not os.path.exists("log"):
     os.makedirs("log")
 
 localrules: all
 
-rule dumb_predict:
-    input: expand("angel/{top}.flnc.dumb_ORFs", top = config["replicates"])
 
-rule run_angel:
-    input: tofu("{top}/0to100kb_part0/{top}/combined/all_sizes.quivered_hq.fastq")
-    output: "angel/{top}.flnc.dumb_ORFs"
+
+rule all:
+    input: expand("angel/{top}.final.smart_ORFs.ANGEL.{type}", top = config["replicates"], type = ["cds", "utr", "pep"])
+
+rule predict:
+    input: fasta="{top}/0to100kb_part0/{top}/combined/all_sizes.quivered_hq.fasta", pickle="angel/{top}.flnc.training.final.classifier.pickle"
+    output: ["angel/{top}.final.smart_ORFs.ANGEL.%s" % x for x in ["cds", "utr", "pep"]]
+    params: sge_opts="-pe serial 8 -l h_rt=2:0:0", output_prefix="{top}.final.smart_ORFs"
+    shell:
+        """pushd angel
+           angel_predict.py ../{input.fasta} ../{input.pickle} {params.output_prefix} --cpus 8 \
+                            --min_angel_aa_length 300 --min_dumb_aa_length 300 --use_rev_strand"""
+
+rule train:
+    input: ["angel/{top}.flnc.training.final.%s" % x for x in ["cds", "utr"]]
+    output: "angel/{top}.flnc.training.final.classifier.pickle"
     params: sge_opts="-pe serial 8 -l h_rt=2:0:0"
     shell:
-        "dumb_predict.py {input} {output} --min_aa_length 300 --use_rev_strand --cpus 8"
+        "angel_train.py {input} {output} --cpus 8"
+
+rule make_training_set:
+    input: ["angel/{top}.flnc.dumb_ORFs.final.%s" % x for x in ["cds", "utr", "pep"]]
+    output: ["angel/{top}.flnc.training.final.%s" % x for x in ["cds", "utr", "pep"]]
+    params: sge_opts="-pe serial 8 -l h_rt=2:0:0", input_prefix="angel/{top}.flnc.dumb_ORFs.final", output_prefix="angel/{top}.flnc.training.final"
+    shell:
+        "angel_make_training_set.py {params.input_prefix} {params.output_prefix} --random --cpus 8"
+
+rule dumb_predict:
+    input: "{top}/0to100kb_part0/{top}/combined/all_sizes.quivered_hq.fasta"
+    output: ["angel/{top}.flnc.dumb_ORFs.final.%s" % x for x in ["cds", "utr", "pep"]] 
+    params: sge_opts="-pe serial 8 -l h_rt=2:0:0", output_prefix="angel/{top}.flnc.dumb_ORFs"
+    shell:
+        "dumb_predict.py {input} {params.output_prefix} --min_aa_length 300 --use_rev_strand --cpus 8"
+
+rule fq2fa:
+    input: "{top}/0to100kb_part0/{top}/combined/all_sizes.quivered_hq.fastq"
+    output: "{top}/0to100kb_part0/{top}/combined/all_sizes.quivered_hq.fasta"
+    params: sge_opts="-l h_rt=2:0:0"
+    shell: "python scripts/fq2fa.py {input}"
