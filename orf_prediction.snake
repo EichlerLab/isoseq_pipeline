@@ -3,7 +3,7 @@ import os
 SNAKEMAKE_DIR = os.path.dirname(workflow.snakefile)
 
 shell.executable("/bin/bash")
-shell.prefix("source %s/env.angel.cfg; set -eo pipefail; " % SNAKEMAKE_DIR)
+shell.prefix("source %s/env.orf_prediction.cfg; set -eo pipefail; " % SNAKEMAKE_DIR)
 
 if config == {}:
     configfile: "%s/config.orf_prediction.yaml" % SNAKEMAKE_DIR
@@ -23,6 +23,6 @@ rule dumb_predict:
 rule run_angel:
     input: tofu("{top}/0to100kb_part0/{top}/combined/all_sizes.quivered_hq.fastq")
     output: "angel/{top}.flnc.dumb_ORFs"
-    params: sge_opts="-pe serial 8"
+    params: sge_opts="-pe serial 8 -l h_rt=2:0:0"
     shell:
         "dumb_predict.py {input} {output} --min_aa_length 300 --use_rev_strand --cpus 8"
