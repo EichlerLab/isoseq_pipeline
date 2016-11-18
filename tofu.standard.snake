@@ -1,6 +1,6 @@
 shell.prefix("source env.tofu.cfg; ")
 
-configfile: "config.yaml"
+configfile: "config.tofu_standard.yaml"
 
 import os
 
