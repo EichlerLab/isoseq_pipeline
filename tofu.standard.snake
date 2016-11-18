@@ -1,4 +1,4 @@
-shell.prefix("source env.cfg; ")
+shell.prefix("source env.tofu.cfg; ")
 
 configfile: "config.yaml"
 
