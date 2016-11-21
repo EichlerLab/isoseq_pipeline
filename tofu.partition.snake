@@ -1,7 +1,7 @@
 import os
 shell.prefix("source env.tofu.cfg; ")
 
-configfile: "config.tofu_standard.yaml"
+configfile: "config.tofu_partition.yaml"
 
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
 TOPGROUP = ["adult_brain"]
@@ -85,13 +85,15 @@ rule partition:
     params : sge_opts=""
     run    :
         outfile = open(output[1], "w")
-        with open(bedfile, "r") as reader:
+        with open(input.partitions, "r") as reader:
             for line in reader:
                 chr, start, end, name = line.rstrip().split()
                 if name == part:
                     print(chr, start, end, sep="\t", file=outfile)
         outfile.close()
-        shell("samtools view -b -q20 {input.mapped} -U {output[0]}.q20fail.bam -L {output[1]} | samtools fastq - > {output[0]}")
+        shell("/net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools view \
+               -b -q20 {input.mapped} -U {output[0]}.q20fail.bam -L {output[1]} | \
+               /net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools fastq - > {output[0]}")
 
 rule gmap:
     input  : "merged_trimmed/{top}/isoseq_{type}.fasta"
@@ -162,4 +164,4 @@ rule bax2bam:
     input  : BAX2BAM , FL=_get_files_by_name
     output : "cc2_bams/{names}.subreads.bam"
     params : sge_opts="-l mfree=15G -l h_rt=06:00:00 -q eichler-short.q"
-    shell  : "{BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
+    shell  : "source env.tofu.cfg; {BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
