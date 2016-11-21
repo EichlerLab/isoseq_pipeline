@@ -1,0 +1,164 @@
+import os
+shell.prefix("source env.tofu.cfg; ")
+
+configfile: "config.tofu_standard.yaml"
+
+BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
+TOPGROUP = ["adult_brain"]
+TYPES    = ["flnc", "nfl"]
+
+GMAP_DB = config["gmap_db"]
+GMAP_NAME = config["gmap_name"]
+
+NAMES  = []
+LOOKUP = {}
+
+PARTS = []
+with open(config["partitions"], "r") as infile:
+    for line in infile:
+        chr, start, end, part = line.rstrip().split()
+        if part not in PARTS:
+            PARTS.append(part)
+
+for i in TOPGROUP:
+    for j in config[i].keys():
+       LOOKUP[j] = i
+       NAMES.append(j)
+
+if not os.path.exists("log"):
+    os.makedirs("log")
+
+def _get_files_by_name(wildcards):
+    return config[LOOKUP[wildcards.names]][wildcards.names]
+
+localrules: all
+
+rule all:
+    input  : expand("{top}.{part}/0to100kb_part0/{top}.{part}/combined/all_sizes.quivered_hq.fastq", top=TOPGROUP, part=PARTS),
+
+rule ice_clustering:
+    input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.q20pass.fastq",
+             nfl = "partitioned/{top}/{part}/isoseq_nfl.q20pass.fastq",
+             bas_fofn = "ice_clustering/{top}/{top}.input.fofn",
+             fasta_fofn = "{top}/fasta_fofn_files/input.fasta.fofn"
+    output : "{top}.{part}/0to100kb_part0/{top}.{part}/combined/all_sizes.quivered_hq.fastq"
+    params : sge_opts = "-l mfree=4G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
+    shell  : # Full path to actual tofu_wrap script: /net/eichler/vol8/home/zevk/projects/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
+       'tofu_wrap.py --nfl_fa {input.nfl} --bas_fofn {input.bas_fofn} -d {wildcards.top} --use_sge \
+                  --max_sge_jobs {params.max_jobs} --blasr_nproc {params.blasr_procs} \
+                  --gcon_nproc {params.gcon_procs} --quiver_nproc 2 --quiver \
+                  --bin_manual "(0,100)" --output_seqid_prefix {wildcards.top} \
+                  --sge_env_name serial --gmap_db {GMAP_DB} --gmap_name {GMAP_NAME} \
+                  --fasta_fofn {input.fasta_fofn} {input.flnc} {params.output_basename}'
+
+rule prepare_tofu_input:
+    input  : lambda wc: config[wc.top].values()
+    output : "{top}/fasta_fofn_files/input.fasta.fofn"
+    params : sge_opts="-l h_rt=1:0:0"
+    run    :
+       outdir = os.path.dirname(output[0])
+       with open(output[0], "w") as out_fn:
+          for fn in input:
+             shell("rsync --bwlimit=50000 {}* {}".format(fn.rstrip(".bax.h5"), outdir))
+             name = "%s/%s" % (outdir, os.path.basename(fn))
+             print(os.path.abspath(name), file=out_fn)
+
+rule fofn:
+    input  : lambda wc: config[wc.top].values()
+    output : "ice_clustering/{top}/{top}.input.fofn"
+    params : sge_opts="-l mfree=2G -l h_rt=00:20:00 -q eichler-short.q"
+    run    : 
+        with open(output[0], "w") as out_fn:
+            for fn in input:
+                print(os.path.abspath(fn), file=out_fn)
+
+#rule faTofq:
+#    input  : READS="merged_trimmed/{top}/isoseq_{type}.fasta"
+#    output : "merged_trimmed/{top}/isoseq_{type}.fastq"
+#    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
+#    shell  : "python scripts/fa2fq.py {input.READS}"
+
+rule partition:
+    input  : mapped="mapped/{top}/isoseq_{type}.bam", partitions=config["partitions"]
+    output : "partitioned/{top}/{part}/isoseq_{type}.q20pass.fastq",
+             "partitioned/{top}/{part}/regions_{type}.bed"
+    params : sge_opts=""
+    run    :
+        outfile = open(output[1], "w")
+        with open(bedfile, "r") as reader:
+            for line in reader:
+                chr, start, end, name = line.rstrip().split()
+                if name == part:
+                    print(chr, start, end, sep="\t", file=outfile)
+        outfile.close()
+        shell("samtools view -b -q20 {input.mapped} -U {output[0]}.q20fail.bam -L {output[1]} | samtools fastq - > {output[0]}")
+
+rule gmap:
+    input  : "merged_trimmed/{top}/isoseq_{type}.fasta"
+    output : "mapped/{top}/isoseq_{type}.bam", "mapped/{top}/isoseq_{type}.bam.bai"
+    params : sge_opts="-l mfree=8G -pe serial 6 -l h_rt=1:0:0:0"
+    shell  :
+        """mkdir -p /var/tmp/indices/gmap2
+           rsync -arv --bwlimit=50000 --exclude "GRCh38.11" {GMAP_DB} /var/tmp/indices/gmap2/
+           /net/eichler/vol5/home/mchaisso/software/bin/gmap --dir=/var/tmp/indices/gmap2/ \
+           --db={GMAP_NAME} -f samse -t 6 isoseq_flnc.fasta > $TMPDIR/isoseq_flnc.sam
+           samtools view -S -b $TMPDIR/isoseq_flnc.sam |\
+           samtools sort -@ 6 -O bam -T $TMPDIR/isoseq_sort - > {output[0]}
+           samtools index {output[0]}
+        """
+
+rule catlens:
+    input  : STATS=expand("primer_trimmed/{names}/isoseq_flnc.fasta.fai", names=NAMES)
+    output : "merged_trimmed/{top}/isoseq_{type}.fasta.fai"
+    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
+    shell  : "cat {input.STATS} >{output}"
+
+rule catfa:
+    input  : FA=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta", names=NAMES),
+             STATS=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta.len.txt", names=NAMES)
+    output : "merged_trimmed/{top}/isoseq_{type}.fasta"
+    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
+    shell  : "cat {input.FA} > {output}"
+
+rule lenStat:
+    input  : "primer_trimmed/{names}/isoseq_{type}.fasta.fai"
+    output : "primer_trimmed/{names}/isoseq_{type}.fasta.len.txt"
+    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
+    shell  : "awk '{{print $2}}' {input} > {output}"
+
+rule lens:
+    input  : "primer_trimmed/{names}/isoseq_{type}.fasta"
+    output : "primer_trimmed/{names}/isoseq_{type}.fasta.fai"
+    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
+    shell  :  "samtools faidx {input}"
+
+rule trim:
+    input  : FAS="post_pbccs_fasta/{names}.fa", BCC="scripts/do_barcode.sh"
+    output : "primer_trimmed/{names}/isoseq_flnc.fasta", "primer_trimmed/{names}/isoseq_nfl.fasta"
+    params : sge_opts="-l mfree=20G -l h_rt=4:00:00 -q eichler-short.q -pe serial 12"
+    shadow : True
+    shell  : 
+        "python scripts/fluid_barcode_identification.py --reads_fn {input.FAS} "
+                "--primer_fn_forward data/custom_barcode_primers_forward.fa "
+                "--primer_fn_reverse data/custom_barcode_primers_reverse.fa "
+                "--ncpus 12 "
+                "--flnc_fn_out {output[0]} "
+                "--nfl_fn_out {output[1]}"
+
+rule bam2fa:
+    input  : BAM="pbccs_results/{names}.pbccs.bam", XML="pbccs_results/{names}.pbccs.consensusreadset.xml"
+    output : "post_pbccs_fasta/{names}.fa"
+    params : sge_opts="-l mfree=3G -l h_rt=48:00:00 -q eichler-short.q"
+    shell  : "bamtools convert -in {input.BAM} -format fasta > {output}"
+
+rule ccs:
+    input  : BAM="cc2_bams/{names}.subreads.bam", CCS="/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/ccs"
+    output : "pbccs_results/{names}.pbccs.bam", "pbccs_results/{names}.pbccs.consensusreadset.xml"
+    params : sge_opts="-l mfree=4G -l h_rt=48:00:00 -q eichler-short.q -pe serial 4"
+    shell  : "{input.CCS} --numThreads=4 --minLength=200 {input.BAM} {output[0]}"
+
+rule bax2bam:
+    input  : BAX2BAM , FL=_get_files_by_name
+    output : "cc2_bams/{names}.subreads.bam"
+    params : sge_opts="-l mfree=15G -l h_rt=06:00:00 -q eichler-short.q"
+    shell  : "{BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
