@@ -168,4 +168,4 @@ rule bax2bam:
     input  : BAX2BAM , FL=_get_files_by_name
     output : "cc2_bams/{names}.subreads.bam"
     params : sge_opts="-l mfree=15G -l h_rt=06:00:00 -q eichler-short.q"
-    shell  : "source env.tofu.cfg; {BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
+    shell  : "{BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
