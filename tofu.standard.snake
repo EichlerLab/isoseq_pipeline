@@ -43,19 +43,19 @@ rule ice_clustering:
                       --gcon_nproc {params.gcon_procs} --quiver_nproc 2 --quiver \
                       --bin_manual "(0,100)" --output_seqid_prefix {wildcards.top} \
                       --sge_env_name serial --gmap_db {GMAP_DB} --gmap_name {GMAP_NAME} \
-                      {input.flnc} {params.output_basename}' #--fasta_fofn {input.fasta_fofn}'
+                      {input.flnc} {params.output_basename} --fasta_fofn {input.fasta_fofn}'
 
 rule prepare_tofu_input:
     input  : lambda wc: config[wc.top].values()
     output : "{top}/fasta_fofn_files/input.fasta.fofn"
     params : sge_opts="-l h_rt=1:0:0"
     run    :
-        outdir = os.path.dirname(output[0])
+        outdir = os.path.abspath(os.path.dirname(output[0]))
         with open(output[0], "w") as out_fn:
             for fn in input:
                 shell("rsync --bwlimit=50000 {}* {}".format(fn.rstrip(".bax.h5"), outdir))
-                name = "%s/%s" % (outdir, os.path.basename(fn))
-                print(os.path.abspath(name), file=out_fn)
+                name = "%s/%s" % (outdir, os.path.basename(fn.rstrip(".bax.h5")))
+                print("%s/%s" % (outdir, os.path.dirname(name + ".fasta")), file=out_fn)
 
 rule fofn:
     input  : expand("merged_trimmed/{{top}}/isoseq_{type}.fastq", type=TYPES)
@@ -80,7 +80,8 @@ rule catlens:
      shell  : "cat {input.STATS} >{output}"
 
 rule catfa:
-     input  : FA=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta", names=NAMES), STATS=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta.len.txt", names=NAMES)
+     input  : FA=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta", names=NAMES),
+              STATS=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta.len.txt", names=NAMES)
      output : "merged_trimmed/{top}/isoseq_{type}.fasta"
      params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
      shell  : "cat {input.FA} > {output}"
