@@ -34,24 +34,24 @@ def _get_files_by_name(wildcards):
 localrules: all
 
 rule all:
-    input  : expand("{top}.{part}/0to100kb_part0/{top}.{part}/combined/all_sizes.quivered_hq.fastq", top=TOPGROUP, part=PARTS),
+    input  : expand("{top}.{part}/combined/all_sizes.quivered_hq.fastq", top=TOPGROUP, part=PARTS),
 
 rule ice_clustering:
     input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.q20pass.fastq",
              nfl = "partitioned/{top}/{part}/isoseq_nfl.q20pass.fastq",
              bas_fofn = "ice_clustering/{top}/{top}.input.fofn",
              fasta_fofn = "{top}/fasta_fofn_files/input.fasta.fofn"
-    output : "{top}.{part}/0to100kb_part0/{top}.{part}/combined/all_sizes.quivered_hq.fastq"
+    output : "{top}.{part}/combined/all_sizes.quivered_hq.fastq"
     params : sge_opts = "-l mfree=4G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol8/home/zevk/projects/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
        """if [[ -s {input.nfl} ]]
               then NFL_ARGS="--nfl_fa {input.nfl}"
               else NFL_ARGS="--nfl_fa {input.flnc}"
           fi
-          tofu_wrap.py $NFL_ARGS --bas_fofn {input.bas_fofn} -d {wildcards.top} --use_sge \
+          tofu_wrap.py $NFL_ARGS --bas_fofn {input.bas_fofn} -d {wildcards.top}.{wildcards.part} --use_sge \
                   --max_sge_jobs {params.max_jobs} --blasr_nproc {params.blasr_procs} \
                   --gcon_nproc {params.gcon_procs} --quiver_nproc 2 --quiver \
-                  --bin_manual "(0,100)" --output_seqid_prefix {wildcards.top} \
+                  --bin_manual "(0,100)" --output_seqid_prefix {wildcards.top}.{wildcards.part} \
                   --sge_env_name serial --gmap_db {GMAP_DB} --gmap_name {GMAP_NAME} \
                   --fasta_fofn {input.fasta_fofn} {input.flnc} {params.output_basename}"""
 
@@ -65,7 +65,7 @@ rule prepare_tofu_input:
             for fn in input:
                 shell("rsync --bwlimit=50000 {}* {}".format(fn.rstrip(".bax.h5"), outdir))
                 name = "%s/%s" % (outdir, os.path.basename(fn.rstrip(".bax.h5")))
-                print(os.path.abspath(name + ".fasta"), file=out_fn)
+                print(os.path.abspath(name + ".subreads.fasta"), file=out_fn)
 
 rule fofn:
     input  : lambda wc: config[wc.top].values()
