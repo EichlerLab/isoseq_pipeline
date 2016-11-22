@@ -55,7 +55,7 @@ rule prepare_tofu_input:
             for fn in input:
                 shell("rsync --bwlimit=50000 {}* {}".format(fn.rstrip(".bax.h5"), outdir))
                 name = "%s/%s" % (outdir, os.path.basename(fn.rstrip(".bax.h5")))
-                print("%s/%s" % (outdir, os.path.dirname(name + ".fasta")), file=out_fn)
+                print("%s/%s" % (outdir, os.path.dirname(name + ".subreads.fasta")), file=out_fn)
 
 rule fofn:
     input  : expand("merged_trimmed/{{top}}/isoseq_{type}.fastq", type=TYPES)
