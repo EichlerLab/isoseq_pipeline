@@ -1,22 +1,22 @@
 ---
 gmap_name: GRCh38
-gmap_db: /net/eichler/vol2/eee_shared/assemblies/GRCh38/indexes/gmap2
+gmap_db: /net/eichler/vol26/15000/indices/gmap2
 
 partitions: partitions.bed
 
 adult_brain:
-    adult_brain_elf_6-A-movie1: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac6/A01_1/Analysis_Results/m160614_013904_42139_c100966090630000001823217407061600_s1_p0.1.bax.h5
-    adult_brain_elf_6-A-movie2: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac6/A01_1/Analysis_Results/m160614_013904_42139_c100966090630000001823217407061600_s1_p0.2.bax.h5
-    adult_brain_elf_6-A-movie3: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac6/A01_1/Analysis_Results/m160614_013904_42139_c100966090630000001823217407061600_s1_p0.3.bax.h5
-    adult_brain_elf_7-A-movie1: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac7/B01_1/Analysis_Results/m160614_075731_42139_c100966090630000001823217407061601_s1_p0.1.bax.h5
-    adult_brain_elf_7-A-movie2: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac7/B01_1/Analysis_Results/m160614_075731_42139_c100966090630000001823217407061601_s1_p0.2.bax.h5
-    adult_brain_elf_7-A-movie3: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac7/B01_1/Analysis_Results/m160614_075731_42139_c100966090630000001823217407061601_s1_p0.3.bax.h5
-    adult_brain_elf_8-A-movie1: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac8/C01_1/Analysis_Results/m160614_141925_42139_c100966090630000001823217407061602_s1_p0.1.bax.h5
-    adult_brain_elf_8-A-movie2: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac8/C01_1/Analysis_Results/m160614_141925_42139_c100966090630000001823217407061602_s1_p0.2.bax.h5
-    adult_brain_elf_8-A-movie3: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac8/C01_1/Analysis_Results/m160614_141925_42139_c100966090630000001823217407061602_s1_p0.3.bax.h5
-    adult_brain_elf_9-A-movie1: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac9/D01_1/Analysis_Results/m160614_203953_42139_c100966090630000001823217407061603_s1_p0.1.bax.h5
-    adult_brain_elf_9-A-movie2: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac9/D01_1/Analysis_Results/m160614_203953_42139_c100966090630000001823217407061603_s1_p0.2.bax.h5
-    adult_brain_elf_9-A-movie3: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac9/D01_1/Analysis_Results/m160614_203953_42139_c100966090630000001823217407061603_s1_p0.3.bax.h5
+    adult_brain_elf_6-A-movie1: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac6/A01_1/Analysis_Results/m160614_013904_42139_c100966090630000001823217407061600_s1_p0.1.bax.h5
+    adult_brain_elf_6-A-movie2: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac6/A01_1/Analysis_Results/m160614_013904_42139_c100966090630000001823217407061600_s1_p0.2.bax.h5
+    adult_brain_elf_6-A-movie3: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac6/A01_1/Analysis_Results/m160614_013904_42139_c100966090630000001823217407061600_s1_p0.3.bax.h5
+    adult_brain_elf_7-A-movie1: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac7/B01_1/Analysis_Results/m160614_075731_42139_c100966090630000001823217407061601_s1_p0.1.bax.h5
+    adult_brain_elf_7-A-movie2: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac7/B01_1/Analysis_Results/m160614_075731_42139_c100966090630000001823217407061601_s1_p0.2.bax.h5
+    adult_brain_elf_7-A-movie3: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac7/B01_1/Analysis_Results/m160614_075731_42139_c100966090630000001823217407061601_s1_p0.3.bax.h5
+    adult_brain_elf_8-A-movie1: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac8/C01_1/Analysis_Results/m160614_141925_42139_c100966090630000001823217407061602_s1_p0.1.bax.h5
+    adult_brain_elf_8-A-movie2: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac8/C01_1/Analysis_Results/m160614_141925_42139_c100966090630000001823217407061602_s1_p0.2.bax.h5
+    adult_brain_elf_8-A-movie3: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac8/C01_1/Analysis_Results/m160614_141925_42139_c100966090630000001823217407061602_s1_p0.3.bax.h5
+    adult_brain_elf_9-A-movie1: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac9/D01_1/Analysis_Results/m160614_203953_42139_c100966090630000001823217407061603_s1_p0.1.bax.h5
+    adult_brain_elf_9-A-movie2: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac9/D01_1/Analysis_Results/m160614_203953_42139_c100966090630000001823217407061603_s1_p0.2.bax.h5
+    adult_brain_elf_9-A-movie3: /net/eichler/vol21/projects/human_primate_brain_ips_transcriptomes/nobackups/pacbio_data/raw_data/Transcript_Capture/Adult_frac9/D01_1/Analysis_Results/m160614_203953_42139_c100966090630000001823217407061603_s1_p0.3.bax.h5
     adult_brain_amp_0.4x-A-movie1: /net/eichler/vol24/projects/sequencing/pacbio/backups/incoming/160225_JU_PCB-CC_20kb_P6v2_725/D01_1/Analysis_Results/m160226_223848_42134_c100969612550000001823215707061691_s1_p0.1.bax.h5
     adult_brain_amp_0.4x-A-movie2: /net/eichler/vol24/projects/sequencing/pacbio/backups/incoming/160225_JU_PCB-CC_20kb_P6v2_725/D01_1/Analysis_Results/m160226_223848_42134_c100969612550000001823215707061691_s1_p0.2.bax.h5
     adult_brain_amp_0.4x-A-movie3: /net/eichler/vol24/projects/sequencing/pacbio/backups/incoming/160225_JU_PCB-CC_20kb_P6v2_725/D01_1/Analysis_Results/m160226_223848_42134_c100969612550000001823215707061691_s1_p0.3.bax.h5
