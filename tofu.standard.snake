@@ -1,8 +1,8 @@
+import os
+
 shell.prefix("source env.tofu.cfg; ")
 
-configfile: "config.tofu_standard.yaml"
-
-import os
+configfile: "config.tofu.yaml"
 
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
 TOPGROUP = ["testing"]
@@ -33,8 +33,8 @@ rule all:
 rule ice_clustering:
     input  : flnc = "merged_trimmed/{top}/isoseq_flnc.fastq",
              nfl = "merged_trimmed/{top}/isoseq_nfl.fastq",
-             bas_fofn = "ice_clustering/{top}/{top}.input.fofn",
-             fasta_fofn = "{top}/fasta_fofn_files/input.fasta.fofn"
+             bas_fofn = "{top}/fasta_fofn_files/{top}.bas.fofn",
+             fasta_fofn = "{top}/fasta_fofn_files/{top}.fasta.fofn"
     output : "{top}/combined/all_sizes.quivered_hq.fastq"
     params : sge_opts = "-l mfree=4G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol8/home/zevk/projects/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
@@ -47,63 +47,60 @@ rule ice_clustering:
 
 rule prepare_tofu_input:
     input  : lambda wc: config[wc.top].values()
-    output : "{top}/fasta_fofn_files/input.fasta.fofn"
+    output : "{top}/fasta_fofn_files/{top}.fasta.fofn"
     params : sge_opts="-l h_rt=1:0:0"
     run    :
-        outdir = os.path.abspath(os.path.dirname(output[0]))
+        outdir = os.path.dirname(output[0])
         with open(output[0], "w") as out_fn:
             for fn in input:
-                shell("rsync --bwlimit=50000 {}* {}".format(fn.rstrip(".bax.h5"), outdir))
-                name = "%s/%s" % (outdir, os.path.basename(fn.rstrip(".bax.h5")))
-                print("%s/%s" % (outdir, os.path.dirname(name + ".subreads.fasta")), file=out_fn)
+                print(os.path.abspath(fn.replace(".bax.h5", ".subreads.fasta")), file=out_fn)
 
 rule fofn:
-    input  : expand("merged_trimmed/{{top}}/isoseq_{type}.fastq", type=TYPES)
-    output : "ice_clustering/{top}/{top}.input.fofn"
+    input  : lambda wc: config[wc.top].values()
+    output : "{top}/fasta_fofn_files/{top}.bas.fofn"
     params : sge_opts="-l mfree=2G -l h_rt=00:20:00 -q eichler-short.q"
     run    : 
         with open(output[0], "w") as out_fn:
-            for tg in TOPGROUP:
-                for group in config[tg]:
-                    print(config[tg][group], file=out_fn)
+            for fn in input:
+                print(os.path.abspath(fn), file=out_fn)
 
 rule faTofq:
-     input  : READS="merged_trimmed/{top}/isoseq_{type}.fasta"
-     output : "merged_trimmed/{top}/isoseq_{type}.fastq"
-     params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
-     shell  : "python scripts/fa2fq.py {input.READS}"
+    input  : READS="merged_trimmed/{top}/isoseq_{type}.fasta"
+    output : "merged_trimmed/{top}/isoseq_{type}.fastq"
+    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
+    shell  : "python scripts/fa2fq.py {input.READS}"
 
 rule catlens:
-     input  : STATS=expand("primer_trimmed/{names}/isoseq_flnc.fasta.fai", names=NAMES)
-     output : "merged_trimmed/{top}/isoseq_{type}.fasta.fai"
-     params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
-     shell  : "cat {input.STATS} >{output}"
+    input  : STATS=expand("primer_trimmed/{names}/isoseq_flnc.fasta.fai", names=NAMES)
+    output : "merged_trimmed/{top}/isoseq_{type}.fasta.fai"
+    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
+    shell  : "cat {input.STATS} >{output}"
 
 rule catfa:
-     input  : FA=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta", names=NAMES),
-              STATS=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta.len.txt", names=NAMES)
-     output : "merged_trimmed/{top}/isoseq_{type}.fasta"
-     params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
-     shell  : "cat {input.FA} > {output}"
+    input  : FA=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta", names=NAMES),
+             STATS=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta.len.txt", names=NAMES)
+    output : "merged_trimmed/{top}/isoseq_{type}.fasta"
+    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
+    shell  : "cat {input.FA} > {output}"
 
 rule lenStat:
-     input  : "primer_trimmed/{names}/isoseq_{type}.fasta.fai"
-     output : "primer_trimmed/{names}/isoseq_{type}.fasta.len.txt"
-     params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
-     shell  : "awk '{{print $2}}' {input} > {output}"
+    input  : "primer_trimmed/{names}/isoseq_{type}.fasta.fai"
+    output : "primer_trimmed/{names}/isoseq_{type}.fasta.len.txt"
+    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
+    shell  : "awk '{{print $2}}' {input} > {output}"
 
 rule lens:
-     input  : "primer_trimmed/{names}/isoseq_{type}.fasta"
-     output : "primer_trimmed/{names}/isoseq_{type}.fasta.fai"
-     params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
-     shell  :  "samtools faidx {input}"
+    input  : "primer_trimmed/{names}/isoseq_{type}.fasta"
+    output : "primer_trimmed/{names}/isoseq_{type}.fasta.fai"
+    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
+    shell  :  "samtools faidx {input}"
 
 rule trim:
-     input  : FAS="post_pbccs_fasta/{names}.fa", BCC="scripts/do_barcode.sh"
-     output : "primer_trimmed/{names}/isoseq_flnc.fasta", "primer_trimmed/{names}/isoseq_nfl.fasta"
-     params : sge_opts="-l mfree=20G -l h_rt=4:00:00 -q eichler-short.q -pe serial 12"
-     shadow : True
-     shell  : 
+    input  : FAS="post_pbccs_fasta/{names}.fa", BCC="scripts/do_barcode.sh"
+    output : "primer_trimmed/{names}/isoseq_flnc.fasta", "primer_trimmed/{names}/isoseq_nfl.fasta"
+    params : sge_opts="-l mfree=4G -l h_rt=4:00:00 -q eichler-short.q -pe serial 12"
+    shadow : True
+    shell  : 
         "python scripts/fluid_barcode_identification.py --reads_fn {input.FAS} "
                 "--primer_fn_forward data/custom_barcode_primers_forward.fa "
                 "--primer_fn_reverse data/custom_barcode_primers_reverse.fa "
@@ -112,19 +109,19 @@ rule trim:
                 "--nfl_fn_out {output[1]}"
 
 rule bam2fa:
-     input  : BAM="pbccs_results/{names}.pbccs.bam", XML="pbccs_results/{names}.pbccs.consensusreadset.xml"
-     output : "post_pbccs_fasta/{names}.fa"
-     params : sge_opts="-l mfree=3G -l h_rt=48:00:00 -q eichler-short.q"
-     shell  : "bamtools convert -in {input.BAM} -format fasta > {output}"
+    input  : BAM="pbccs_results/{names}.pbccs.bam", XML="pbccs_results/{names}.pbccs.consensusreadset.xml"
+    output : "post_pbccs_fasta/{names}.fa"
+    params : sge_opts="-l mfree=3G -l h_rt=48:00:00 -q eichler-short.q"
+    shell  : "bamtools convert -in {input.BAM} -format fasta > {output}"
 
 rule ccs:
-     input  : BAM="cc2_bams/{names}.subreads.bam", CCS="/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/ccs"
-     output : "pbccs_results/{names}.pbccs.bam", "pbccs_results/{names}.pbccs.consensusreadset.xml"
-     params : sge_opts="-l mfree=4G -l h_rt=48:00:00 -q eichler-short.q -pe serial 4"
-     shell  : "{input.CCS} --numThreads=4 --minLength=200 {input.BAM} {output[0]}"
+    input  : BAM="cc2_bams/{names}.subreads.bam", CCS="/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/ccs"
+    output : "pbccs_results/{names}.pbccs.bam", "pbccs_results/{names}.pbccs.consensusreadset.xml"
+    params : sge_opts="-l mfree=4G -l h_rt=48:00:00 -q eichler-short.q -pe serial 4"
+    shell  : "{input.CCS} --numThreads=4 --minLength=200 {input.BAM} {output[0]}"
 
 rule bax2bam:
-     input  : BAX2BAM , FL=_get_files_by_name
-     output : "cc2_bams/{names}.subreads.bam"
-     params : sge_opts="-l mfree=15G -l h_rt=06:00:00 -q eichler-short.q"
-     shell  : "{BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
+    input  : BAX2BAM , FL=_get_files_by_name
+    output : "cc2_bams/{names}.subreads.bam"
+    params : sge_opts="-l mfree=15G -l h_rt=06:00:00 -q eichler-short.q"
+    shell  : "{BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
