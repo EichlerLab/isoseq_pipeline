@@ -1,5 +1,0 @@
----
-gmap_name: GRCh38
-gmap_db: /net/eichler/vol2/eee_shared/assemblies/GRCh38/indexes/gmap2
-testing:
-    adult_brain_elf_6-A-movie1: /net/eichler/vol8/home/mldough/Aspera/Transcript_Capture/Adult_frac6/A01_1/Analysis_Results/m160614_013904_42139_c100966090630000001823217407061600_s1_p0.1.bax.h5
