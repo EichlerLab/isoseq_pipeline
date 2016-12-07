@@ -1,10 +1,11 @@
 import os
+
 shell.prefix("source env.tofu.cfg; ")
 
-configfile: "config.tofu_partition.yaml"
+configfile: "config.tofu.yaml"
 
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
-TOPGROUP = ["adult_brain"]
+TOPGROUP = ["human"]
 TYPES    = ["flnc", "nfl"]
 
 GMAP_DB = config["gmap_db"]
@@ -22,8 +23,8 @@ with open(config["partitions"], "r") as infile:
 
 for i in TOPGROUP:
     for j in config[i].keys():
-       LOOKUP[j] = i
-       NAMES.append(j)
+        LOOKUP[j] = i
+        NAMES.append(j)
 
 if not os.path.exists("log"):
     os.makedirs("log")
@@ -44,11 +45,7 @@ rule ice_clustering:
     output : "{top}.{part}/combined/all_sizes.quivered_hq.fastq"
     params : sge_opts = "-l mfree=8G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol8/home/zevk/projects/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
-       """if [[ -s {input.nfl} ]]
-              then NFL_ARGS="--nfl_fa {input.nfl}"
-              else NFL_ARGS="--nfl_fa {input.flnc}"
-          fi
-          tofu_wrap.py $NFL_ARGS --bas_fofn {input.bas_fofn} -d {wildcards.top}.{wildcards.part} --use_sge \
+       """tofu_wrap.py --nfl_fa {input.nfl} --bas_fofn {input.bas_fofn} -d {wildcards.top}.{wildcards.part} --use_sge \
                   --max_sge_jobs {params.max_jobs} --blasr_nproc {params.blasr_procs} \
                   --gcon_nproc {params.gcon_procs} --quiver_nproc 2 --quiver \
                   --bin_manual "(0,100)" --output_seqid_prefix {wildcards.top}.{wildcards.part} \
@@ -73,12 +70,6 @@ rule fofn:
         with open(output[0], "w") as out_fn:
             for fn in input:
                 print(os.path.abspath(fn), file=out_fn)
-
-#rule faTofq:
-#    input  : READS="merged_trimmed/{top}/isoseq_{type}.fasta"
-#    output : "merged_trimmed/{top}/isoseq_{type}.fastq"
-#    params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
-#    shell  : "python scripts/fa2fq.py {input.READS}"
 
 rule partition:
     input  : mapped="mapped/{top}/isoseq_{type}.bam", partitions=config["partitions"]
