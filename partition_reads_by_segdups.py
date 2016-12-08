@@ -9,6 +9,8 @@ from attr.validators import instance_of
 import bisect
 import argparse
 
+import sys
+
 @attr.s
 class BedInterval(object):
     "Class for a genomic region with chr, start, and end"
@@ -25,7 +27,7 @@ class BedInterval(object):
 
     def to_interval(self):
         "Returns intervaltree Interval with start and end"
-        return Interval(start, end)
+        return Interval(int(self.start), int(self.end))
 
 @attr.s
 class Partition(object):
@@ -58,6 +60,11 @@ class Partition(object):
         self.add_segdups(segdups)
         self.reads += interval.reads
         self.intervals.append(interval)
+
+    def interval_conflicts(self, interval):
+        if interval.chr not in self.conflicts:
+            return False
+        return self.conflicts[interval.chr].overlaps(interval.to_interval())
 
     def partition_conflicts(self, partition):
         """Returns True if partitions have overlapping segdup conflicts.
@@ -106,6 +113,11 @@ class PartitionSet(object):
     def segdup_matches(self, interval):
         "Returns a list of segdup BedIntervals for a given interval"
         segdups = []
+        try:
+            records = self.segdups.query(*interval.to_region())
+        except tabix.TabixError as e:
+            #Query failed, likely due to missing contig
+            return []
         for record in self.segdups.query(*interval.to_region()):
             chr, se = record[3].split(":")
             start, end = map(int, se.split("-"))
@@ -125,7 +137,7 @@ class PartitionSet(object):
         """Return index of partition to add interval to.
         Returns None if no suitable partition exists."""
         for i, partition in enumerate(self.small_partitions):
-            if not self.segdup_conflicts(segdups, partition):
+            if not partition.interval_conflicts(interval):
                 return i
         return None
 
@@ -153,14 +165,14 @@ class PartitionSet(object):
             partition = self.small_partitions.pop()
             index = self.find_partition_index_for_partition(partition)
 
+            if index is None:
+                bisect.insort_left(self.full_partitions, partition)
+                continue
             if index < len(self.small_partitions):
                 part = self.small_partitions.pop(index)
             else:
                 part = self.full_partitions.pop(index - len(self.small_partitions))
 
-            if part is None:
-                bisect.insort_left(self.full_partitions, partition)
-                continue
             part.merge(partition)
             if partition.reads < self.read_threshold:
                 bisect.insort_left(self.small_partitions, part)
@@ -174,6 +186,15 @@ class PartitionSet(object):
             for iv in part.intervals:
                 print(iv.chr, iv.start, iv.end, i, part.reads, sep="\t", file=outfile)
 
+    def write_debug(self, outfile):
+        assert len(self.small_partitions) == 0
+        print("chr", "start", "end", "group", "reads", "segdups", sep="\t", file=outfile)
+
+        for i, part in enumerate(self.full_partitions):
+            for iv in part.intervals:
+                print(iv.chr, iv.start, iv.end, i, part.reads, part.conflicts, sep="\t", file=outfile)
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -182,6 +203,7 @@ if __name__ == "__main__":
     parser.add_argument("read_locations", help="Bed file with chr, start, end, and nreads of initial groups")
     parser.add_argument("outfile", help="Path to tab-delimited output file in headered bed format")
     parser.add_argument("--count_threshold", default=200, type=int, help="Target minimum partition size")
+    parser.add_argument("--debug", action="store_true")
 
     args = parser.parse_args()
 
@@ -195,4 +217,6 @@ if __name__ == "__main__":
             interval = BedInterval(chr, int(start), int(end), reads=int(nreads))
             partitions.add_interval(interval)
     partitions.finish_small_partitions()
+    if args.debug:
+        partitions.write_debug(sys.stdout)
     partitions.write(open(args.outfile, "w"))
