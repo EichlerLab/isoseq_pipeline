@@ -186,9 +186,11 @@ class PartitionSet(object):
             for iv in part.intervals:
                 print(iv.chr, iv.start, iv.end, i, part.reads, sep="\t", file=outfile)
 
-    def write_debug(self, outfile):
+    def write_debug(self, outfile, header=True):
         assert len(self.small_partitions) == 0
-        print("chr", "start", "end", "group", "reads", "segdups", sep="\t", file=outfile)
+
+        if header:
+            print("chr", "start", "end", "group", "reads", "segdups", sep="\t", file=outfile)
 
         for i, part in enumerate(self.full_partitions):
             for iv in part.intervals:
@@ -203,6 +205,7 @@ if __name__ == "__main__":
     parser.add_argument("read_locations", help="Bed file with chr, start, end, and nreads of initial groups")
     parser.add_argument("outfile", help="Path to tab-delimited output file in headered bed format")
     parser.add_argument("--count_threshold", default=200, type=int, help="Target minimum partition size")
+    parser.add_argument("--noheader", action="store_true")
     parser.add_argument("--debug", action="store_true")
 
     args = parser.parse_args()
@@ -219,4 +222,4 @@ if __name__ == "__main__":
     partitions.finish_small_partitions()
     if args.debug:
         partitions.write_debug(sys.stdout)
-    partitions.write(open(args.outfile, "w"))
+    partitions.write(open(args.outfile, "w"), header=args.header)
