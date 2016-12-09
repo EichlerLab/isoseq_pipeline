@@ -179,24 +179,18 @@ class PartitionSet(object):
             else:
                 bisect.insort_left(self.full_partitions, part)
 
-    def write(self, outfile):
-        assert len(self.small_partitions) == 0
-        print("chr", "start", "end", "group", "reads", sep="\t", file=outfile)
-        for i, part in enumerate(self.full_partitions):
-            for iv in part.intervals:
-                print(iv.chr, iv.start, iv.end, i, part.reads, sep="\t", file=outfile)
-
-    def write_debug(self, outfile, header=True):
+    def write(self, outfile, header=True, debug=False):
         assert len(self.small_partitions) == 0
 
         if header:
-            print("chr", "start", "end", "group", "reads", "segdups", sep="\t", file=outfile)
-
+            print("chr", "start", "end", "group", "reads", sep="\t", file=outfile)
+        
         for i, part in enumerate(self.full_partitions):
             for iv in part.intervals:
-                print(iv.chr, iv.start, iv.end, i, part.reads, part.conflicts, sep="\t", file=outfile)
-
-
+                if debug:
+                    print(iv.chr, iv.start, iv.end, i, part.reads, part.conflicts, sep="\t", file=outfile)
+                else:
+                    print(iv.chr, iv.start, iv.end, i, part.reads, sep="\t", file=outfile)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -205,7 +199,7 @@ if __name__ == "__main__":
     parser.add_argument("read_locations", help="Bed file with chr, start, end, and nreads of initial groups")
     parser.add_argument("outfile", help="Path to tab-delimited output file in headered bed format")
     parser.add_argument("--count_threshold", default=200, type=int, help="Target minimum partition size")
-    parser.add_argument("--noheader", action="store_true")
+    parser.add_argument("--header", action="store_true")
     parser.add_argument("--debug", action="store_true")
 
     args = parser.parse_args()
@@ -220,6 +214,4 @@ if __name__ == "__main__":
             interval = BedInterval(chr, int(start), int(end), reads=int(nreads))
             partitions.add_interval(interval)
     partitions.finish_small_partitions()
-    if args.debug:
-        partitions.write_debug(sys.stdout)
-    partitions.write(open(args.outfile, "w"), header=args.header)
+    partitions.write(open(args.outfile, "w"), header=args.header, debug=args.debug)
