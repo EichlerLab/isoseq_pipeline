@@ -2,7 +2,8 @@
 gmap_name: GRCh38
 gmap_db: /net/eichler/vol26/15000/indices/gmap2
 
-partitions: partitions.gmap.grouped.chr1.bed
+wgac: hg38.genomicSuperDup.sort.bed.gz
+partitions: mapped/human/partitions.human.bed
 
 human:
     human0: /net/eichler/vol24/projects/sequencing/pacbio/backups/incoming/160428_PCB-CC_JU_SC_20kb_P6v2_742/C01_1/Analysis_Results/m160429_082920_42134_c101000142550000001823229908031677_s1_p0.1.bax.h5
