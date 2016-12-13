@@ -41,19 +41,27 @@ rule all:
     input  : expand("{top}.{part}/combined/all_sizes.quivered_hq.fastq", top=TOPGROUP, part=PARTS),
 
 rule ice_clustering:
-    input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.q20pass.fastq",
-             nfl = "partitioned/{top}/{part}/isoseq_nfl.q20pass.fastq",
+    input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.q20pass.cleaned.fastq",
+             nfl = "partitioned/{top}/{part}/isoseq_nfl.q20pass.cleaned.fastq",
              bas_fofn = "{top}/fasta_fofn_files/{top}.bas.fofn",
              fasta_fofn = "{top}/fasta_fofn_files/{top}.fasta.fofn"
     output : "{top}.{part}/combined/all_sizes.quivered_hq.fastq"
-    params : sge_opts = "-l mfree=8G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
+    params : sge_opts = "-l mfree=12G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol5/home/bnelsj/src/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
-       """tofu_wrap.py --nfl_fa {input.nfl} --bas_fofn {input.bas_fofn} -d {wildcards.top}.{wildcards.part} --use_sge \
-                  --max_sge_jobs {params.max_jobs} --blasr_nproc {params.blasr_procs} \
-                  --gcon_nproc {params.gcon_procs} --quiver_nproc 2 --quiver \
-                  --bin_manual "(0,100)" --output_seqid_prefix {wildcards.top}.{wildcards.part} \
-                  --sge_env_name serial --gmap_db {GMAP_DB} --gmap_name {GMAP_NAME} \
-                  --fasta_fofn {input.fasta_fofn} {input.flnc} {params.output_basename}"""
+        """set -eo pipefail
+        tofu_wrap.py --nfl_fa {input.nfl} --bas_fofn {input.bas_fofn} -d {wildcards.top}.{wildcards.part} --use_sge \
+            --max_sge_jobs {params.max_jobs} --blasr_nproc {params.blasr_procs} \
+            --gcon_nproc {params.gcon_procs} --quiver_nproc 2 --quiver \
+            --bin_manual "(0,100)" --output_seqid_prefix {wildcards.top}.{wildcards.part} \
+            --sge_env_name serial --gmap_db {GMAP_DB} --gmap_name {GMAP_NAME} \
+            --fasta_fofn {input.fasta_fofn} {input.flnc} {params.output_basename}
+        if [[ -e {wildcards.top}.{wildcards.part}/0to100kb_part0/{wildcards.top}.{wildcards.part}/combined ]]
+            then rsync {wildcards.top}.{wildcards.part}/0to100kb_part0/{wildcards.top}.{wildcards.part}/combined/* {wildcards.top}.{wildcards.part}/combined
+        fi
+        if [[ -e {wildcards.top}.{wildcards.part}/0to100kb_part0/output/{wildcards.top}.{wildcards.part}/combined ]]
+            then rsync {wildcards.top}.{wildcards.part}/0to100kb_part0/output/{wildcards.top}.{wildcards.part}/combined/* {wildcards.top}.{wildcards.part}/combined
+        fi
+        """
 
 rule prepare_tofu_input:
     input  : lambda wc: config[wc.top].values()
@@ -73,6 +81,15 @@ rule fofn:
         with open(output[0], "w") as out_fn:
             for fn in input:
                 print(os.path.abspath(fn), file=out_fn)
+
+rule clean_fastq:
+    input: "partitioned/{top}/{part}/isoseq_{type}.q20pass.fastq"
+    output: "partitioned/{top}/{part}/isoseq_{type}.q20pass.cleaned.fastq"
+    params: sge_opts="-l h_rt=1:0:0 -l mfree=2G"
+    shell:
+        """module load anaconda/20161130
+        export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
+        python clean_fastq.py {input} {output}"""
 
 rule partition:
     input  : mapped="mapped/{top}/isoseq_{type}.bam", partitions="mapped/{top}/partitions.{top}.bed"
