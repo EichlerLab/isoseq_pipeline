@@ -38,14 +38,34 @@ def _get_files_by_name(wildcards):
 localrules: all, create_partitions
 
 rule all:
-    input  : expand("{top}.{part}/combined/all_sizes.quivered_hq.fastq", top=TOPGROUP, part=PARTS),
+    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab"], top=TOPGROUP),
+
+rule merge_mapped_isoforms:
+    input  : sam = expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.sorted.sam", part=PARTS),
+             header = "mapped/{top}/isoseq_flnc.bam"
+    output : "output/{top}.merged.bam", "output/{top}.merged.sort.bam"
+    params : sge_opts = "-l mfree=1G -l h_rt=1:0:0"
+    shell :
+        """/net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools merge -h {input.header} {output[0]} {input.sam}
+        /net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools sort {output[0]} > {output[1]}
+        """
+
+rule merge_isoforms:
+    input: expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq", part=PARTS)
+    output: "output/{top}.isoform_stats.tab"
+    params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
+    shell:
+        """module load anaconda/20161130
+        export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
+        python merge_isoforms.py {output} {input}
+        """
 
 rule ice_clustering:
     input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.q20pass.cleaned.fastq",
              nfl = "partitioned/{top}/{part}/isoseq_nfl.q20pass.cleaned.fastq",
              bas_fofn = "{top}/fasta_fofn_files/{top}.bas.fofn",
              fasta_fofn = "{top}/fasta_fofn_files/{top}.fasta.fofn"
-    output : "{top}.{part}/combined/all_sizes.quivered_hq.fastq"
+    output : ["{top}.{part}/combined/all_sizes.quivered_hq.%s" % ft for ft in ["fastq", "fastq.no5merge.collapsed.min_fl_2.rep.fq", "fastq.sorted.sam"]]
     params : sge_opts = "-l mfree=12G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol5/home/bnelsj/src/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
         """set -eo pipefail
