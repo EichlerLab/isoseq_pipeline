@@ -204,9 +204,9 @@ rule bam2fa:
 
 rule ccs:
     input  : BAM="cc2_bams/{names}.subreads.bam", CCS="/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/ccs"
-    output : "pbccs_results/{names}.pbccs.bam", "pbccs_results/{names}.pbccs.consensusreadset.xml"
+    output : "pbccs_results/{names}.pbccs.bam", "pbccs_results/{names}.pbccs.consensusreadset.xml", "pbccs_results/{names}.ccs_report.txt"
     params : sge_opts="-l mfree=4G -l h_rt=48:00:00 -q eichler-short.q -pe serial 4"
-    shell  : "{input.CCS} --numThreads=4 --minLength=200 {input.BAM} {output[0]}"
+    shell  : "{input.CCS} --numThreads=4 --minLength=100 --maxLength=1000 --minPasses=1 --reportFile={output[2]} {input.BAM} {output[0]}"
 
 rule bax2bam:
     input  : BAX2BAM , FL=_get_files_by_name
