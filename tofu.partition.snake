@@ -61,8 +61,8 @@ rule merge_isoforms:
         """
 
 rule ice_clustering:
-    input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.q20pass.cleaned.fastq",
-             nfl = "partitioned/{top}/{part}/isoseq_nfl.q20pass.cleaned.fastq",
+    input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.q40pass.cleaned.fastq",
+             nfl = "partitioned/{top}/{part}/isoseq_nfl.q40pass.cleaned.fastq",
              bas_fofn = "{top}/fasta_fofn_files/{top}.bas.fofn",
              fasta_fofn = "{top}/fasta_fofn_files/{top}.fasta.fofn"
     output : ["{top}.{part}/combined/all_sizes.quivered_hq.%s" % ft for ft in ["fastq", "fastq.no5merge.collapsed.min_fl_2.rep.fq", "fastq.sorted.sam"]]
@@ -103,8 +103,8 @@ rule fofn:
                 print(os.path.abspath(fn), file=out_fn)
 
 rule clean_fastq:
-    input: "partitioned/{top}/{part}/isoseq_{type}.q20pass.fastq"
-    output: "partitioned/{top}/{part}/isoseq_{type}.q20pass.cleaned.fastq"
+    input: "partitioned/{top}/{part}/isoseq_{type}.q40pass.fastq"
+    output: "partitioned/{top}/{part}/isoseq_{type}.q40pass.cleaned.fastq"
     params: sge_opts="-l h_rt=1:0:0 -l mfree=2G"
     shell:
         """module load anaconda/20161130
@@ -113,7 +113,7 @@ rule clean_fastq:
 
 rule partition:
     input  : mapped="mapped/{top}/isoseq_{type}.bam", partitions="mapped/{top}/partitions.{top}.bed"
-    output : "partitioned/{top}/{part}/isoseq_{type}.q20pass.fastq",
+    output : "partitioned/{top}/{part}/isoseq_{type}.q40pass.fastq",
              "partitioned/{top}/{part}/regions_{type}.bed"
     params : sge_opts="-l h_rt=0:30:0"
     run    :
@@ -125,7 +125,7 @@ rule partition:
                     print(chr, start, end, sep="\t", file=outfile)
         outfile.close()
         shell("/net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools view \
-               -b -q20 {input.mapped} -U {output[0]}.q20fail.bam -L {output[1]} | \
+               -b -q40 {input.mapped} -U {output[0]}.q40fail.bam -L {output[1]} | \
                /net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools fastq - > {output[0]}")
 
 rule create_partitions:
