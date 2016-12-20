@@ -2,10 +2,10 @@ import os
 
 shell.prefix("source env.tofu.cfg; ")
 
-configfile: "config.tofu.yaml"
+configfile: "config.chimp.yaml"
 
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
-TOPGROUP = ["human"]
+TOPGROUP = ["chimp"]
 TYPES    = ["flnc", "nfl"]
 
 GMAP_DB = config["gmap_db"]
@@ -139,7 +139,7 @@ rule define_partition_regions:
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
-        samtools view -b {input} -q 20 | bedtools bamtobed > {wildcards.top}.isoseq_flnc.sorted.bed
+        samtools view -b {input} -q 40 | bedtools bamtobed > {wildcards.top}.isoseq_flnc.sorted.bed
         bedtools merge -i {wildcards.top}.isoseq_flnc.sorted.bed -c 4 -o count > {wildcards.top}.isoseq_flnc.merged.bed
         python partition_reads_by_segdups.py {params.wgac} {wildcards.top}.isoseq_flnc.merged.bed {output} --count_threshold 500"""
 
