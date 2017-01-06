@@ -5,7 +5,7 @@ shell.prefix("source env.tofu.cfg; ")
 configfile: "config.tofu.yaml"
 
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
-TOPGROUP = ["human"]
+TOPGROUP = config["group_name"]
 TYPES    = ["flnc", "nfl"]
 
 GMAP_DB = config["gmap_db"]
@@ -15,19 +15,19 @@ NAMES  = []
 LOOKUP = {}
 
 PARTS = []
-if os.path.exists(config["partitions"]):
-    with open(config["partitions"], "r") as infile:
+PARTITIONS = "mapped/{0}/partitions.{0}.bed".format(TOPGROUP)
+if os.path.exists(PARTITIONS):
+    with open(PARTITIONS, "r") as infile:
         for line in infile:
             chr, start, end, part = line.rstrip().split()[:4]
             if part not in PARTS:
                 PARTS.append(part)
 else:
-    print("Partition file {} does not exist. Continuing...".format(config["partitions"]))
+    print("Partition file {} does not exist. Continuing...".format(PARTITIONS))
 
-for i in TOPGROUP:
-    for j in config[i].keys():
-        LOOKUP[j] = i
-        NAMES.append(j)
+for j in config[TOPGROUP].keys():
+    LOOKUP[j] = i
+    NAMES.append(j)
 
 if not os.path.exists("log"):
     os.makedirs("log")
@@ -38,7 +38,7 @@ def _get_files_by_name(wildcards):
 localrules: all, create_partitions
 
 rule all:
-    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab"], top=TOPGROUP),
+    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab"], top=[TOPGROUP]),
 
 rule merge_mapped_isoforms:
     input  : sam = expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.sorted.sam", part=PARTS),
