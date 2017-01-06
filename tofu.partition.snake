@@ -25,23 +25,25 @@ if os.path.exists(PARTITIONS):
 else:
     print("Partition file {} does not exist. Continuing...".format(PARTITIONS))
 
-for j in config[TOPGROUP].keys():
-    LOOKUP[j] = i
-    NAMES.append(j)
+NAMES = config[TOPGROUP].keys()
+
+#for j in config[TOPGROUP].keys():
+#    LOOKUP[j] = i
+#    NAMES.append(j)
 
 if not os.path.exists("log"):
     os.makedirs("log")
 
-def _get_files_by_name(wildcards):
-    return config[LOOKUP[wildcards.names]][wildcards.names]
+#def _get_files_by_name(wildcards):
+#    return config[LOOKUP[wildcards.names]][wildcards.names]
 
 localrules: all, create_partitions
 
 rule all:
-    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab"], top=[TOPGROUP]),
+    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab", "all_sizes.quivered_hq.fastq"], top=TOPGROUP),
 
 rule merge_mapped_isoforms:
-    input  : sam = expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.sorted.sam", part=PARTS),
+    input  : sam = expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.sam", part=PARTS),
              header = "mapped/{top}/isoseq_flnc.bam"
     output : "output/{top}.merged.bam", "output/{top}.merged.sort.bam"
     params : sge_opts = "-l mfree=1G -l h_rt=1:0:0"
@@ -52,20 +54,21 @@ rule merge_mapped_isoforms:
 
 rule merge_isoforms:
     input: expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq", part=PARTS)
-    output: "output/{top}.isoform_stats.tab"
+    output: "output/{top}.isoform_stats.tab", "output/{top}.all_sizes.quivered_hq.fastq"
     params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
-        python merge_isoforms.py {output} {input}
+        python merge_isoforms.py {output[0]} {input}
+        cat {input} > {output[1]}
         """
 
 rule ice_clustering:
-    input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.q20pass.cleaned.fastq",
-             nfl = "partitioned/{top}/{part}/isoseq_nfl.q20pass.cleaned.fastq",
+    input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.q40pass.cleaned.fastq",
+             nfl = "partitioned/{top}/{part}/isoseq_nfl.q40pass.cleaned.fastq",
              bas_fofn = "{top}/fasta_fofn_files/{top}.bas.fofn",
              fasta_fofn = "{top}/fasta_fofn_files/{top}.fasta.fofn"
-    output : ["{top}.{part}/combined/all_sizes.quivered_hq.%s" % ft for ft in ["fastq", "fastq.no5merge.collapsed.min_fl_2.rep.fq", "fastq.sorted.sam"]]
+    output : ["{top}.{part}/combined/all_sizes.quivered_hq.%s" % ft for ft in ["fastq", "fastq.no5merge.collapsed.min_fl_2.rep.fq", "fastq.sam"]]
     params : sge_opts = "-l mfree=12G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol5/home/bnelsj/src/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
         """set -eo pipefail
@@ -103,8 +106,8 @@ rule fofn:
                 print(os.path.abspath(fn), file=out_fn)
 
 rule clean_fastq:
-    input: "partitioned/{top}/{part}/isoseq_{type}.q20pass.fastq"
-    output: "partitioned/{top}/{part}/isoseq_{type}.q20pass.cleaned.fastq"
+    input: "partitioned/{top}/{part}/isoseq_{type}.q40pass.fastq"
+    output: "partitioned/{top}/{part}/isoseq_{type}.q40pass.cleaned.fastq"
     params: sge_opts="-l h_rt=1:0:0 -l mfree=2G"
     shell:
         """module load anaconda/20161130
@@ -113,7 +116,7 @@ rule clean_fastq:
 
 rule partition:
     input  : mapped="mapped/{top}/isoseq_{type}.bam", partitions="mapped/{top}/partitions.{top}.bed"
-    output : "partitioned/{top}/{part}/isoseq_{type}.q20pass.fastq",
+    output : "partitioned/{top}/{part}/isoseq_{type}.q40pass.fastq",
              "partitioned/{top}/{part}/regions_{type}.bed"
     params : sge_opts="-l h_rt=0:30:0"
     run    :
@@ -125,7 +128,7 @@ rule partition:
                     print(chr, start, end, sep="\t", file=outfile)
         outfile.close()
         shell("/net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools view \
-               -b -q20 {input.mapped} -U {output[0]}.q20fail.bam -L {output[1]} | \
+               -b -q40 {input.mapped} -U {output[0]}.q40fail.bam -L {output[1]} | \
                /net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools fastq - > {output[0]}")
 
 rule create_partitions:
@@ -139,7 +142,7 @@ rule define_partition_regions:
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
-        samtools view -b {input} -q 20 | bedtools bamtobed > {wildcards.top}.isoseq_flnc.sorted.bed
+        samtools view -b {input} -q 40 | bedtools bamtobed > {wildcards.top}.isoseq_flnc.sorted.bed
         bedtools merge -i {wildcards.top}.isoseq_flnc.sorted.bed -c 4 -o count > {wildcards.top}.isoseq_flnc.merged.bed
         python partition_reads_by_segdups.py {params.wgac} {wildcards.top}.isoseq_flnc.merged.bed {output} --count_threshold 500"""
 
@@ -209,7 +212,7 @@ rule ccs:
     shell  : "{input.CCS} --numThreads=4 --minLength=100 --maxLength=10000 --minPasses=1 --reportFile={output[2]} {input.BAM} {output[0]}"
 
 rule bax2bam:
-    input  : BAX2BAM , FL=_get_files_by_name
+    input  : BAX2BAM , FL=lambda wc: config[TOPGROUP][wc.names]
     output : "cc2_bams/{names}.subreads.bam"
     params : sge_opts="-l mfree=15G -l h_rt=06:00:00 -q eichler-short.q"
     shell  : "{BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
