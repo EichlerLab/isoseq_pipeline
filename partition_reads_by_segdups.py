@@ -9,7 +9,7 @@ from attr.validators import instance_of
 import bisect
 import argparse
 
-import sys
+import os, sys
 
 @attr.s
 class BedInterval(object):
@@ -204,6 +204,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    if not os.path.exists("{}.tbi".format(args.segdups)):
+        print("Error: no index found for file {0}. Run `tabix {0}`.".format(args.segdups))
+        sys.exit(1)
     segdups = tabix.open(args.segdups)
 
     partitions = PartitionSet(segdups, args.count_threshold)
