@@ -40,12 +40,12 @@ if not os.path.exists("log"):
 localrules: all, create_partitions
 
 rule all:
-    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab", "all_sizes.quivered_hq.fastq"], top=TOPGROUP),
+    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab", "all_sizes.quivered_hq.fastq", "all_sizes.quivered_lq.fastq"], top=TOPGROUP),
 
 rule merge_mapped_isoforms:
-    input  : sam = expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.sam", part=PARTS),
+    input  : sam = expand("{{top}}.{part}/combined/all_sizes.quivered_{qual}.fastq.sam", part=PARTS, qual=["lq", "hq"]),
              header = "mapped/{top}/isoseq_flnc.bam"
-    output : "output/{top}.merged.bam", "output/{top}.merged.sort.bam"
+    output : "output/{top}.merged.{qual}.bam", "output/{top}.merged.{qual}.sort.bam"
     params : sge_opts = "-l mfree=1G -l h_rt=1:0:0"
     shell :
         """/net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools merge -h {input.header} {output[0]} {input.sam}
@@ -53,13 +53,13 @@ rule merge_mapped_isoforms:
         """
 
 rule merge_isoforms:
-    input: expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq", part=PARTS)
-    output: "output/{top}.isoform_stats.tab", "output/{top}.all_sizes.quivered_hq.fastq"
+    input: expand("{{top}}.{part}/combined/all_sizes.quivered_{qual}.fastq", part=PARTS, qual=["lq", "hq"])
+    output: "output/{top}.isoform_stats.{qual}.tab", "output/{top}.all_sizes.quivered_{qual}.fastq"
     params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
-        python merge_isoforms.py {output[0]} {input}
+        python merge_isoforms.py {output[0]} {wildcards.top}.*/combined/all_sizes.quivered_{wildcards.qual}.fastq
         cat {input} > {output[1]}
         """
 
@@ -68,7 +68,7 @@ rule ice_clustering:
              nfl = "partitioned/{top}/{part}/isoseq_nfl.q40pass.cleaned.fastq",
              bas_fofn = "{top}/fasta_fofn_files/{top}.bas.fofn",
              fasta_fofn = "{top}/fasta_fofn_files/{top}.fasta.fofn"
-    output : ["{top}.{part}/combined/all_sizes.quivered_hq.%s" % ft for ft in ["fastq", "fastq.no5merge.collapsed.min_fl_2.rep.fq", "fastq.sam"]]
+    output : ["{top}.{part}/combined/all_sizes.quivered_%s" % ft for ft in ["hq.fastq", "hq.fastq.no5merge.collapsed.min_fl_2.rep.fq", "hq.fastq.sam", "lq.fastq"]]
     params : sge_opts = "-l mfree=12G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol5/home/bnelsj/src/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
         """set -eo pipefail
