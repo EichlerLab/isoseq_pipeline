@@ -38,10 +38,10 @@ def _get_files_by_name(wildcards):
 localrules: all, create_partitions
 
 rule all:
-    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab"], top=TOPGROUP),
+    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab", "all_sizes.quivered_hq.fastq"], top=TOPGROUP),
 
 rule merge_mapped_isoforms:
-    input  : sam = expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.sorted.sam", part=PARTS),
+    input  : sam = expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.sam", part=PARTS),
              header = "mapped/{top}/isoseq_flnc.bam"
     output : "output/{top}.merged.bam", "output/{top}.merged.sort.bam"
     params : sge_opts = "-l mfree=1G -l h_rt=1:0:0"
@@ -52,12 +52,13 @@ rule merge_mapped_isoforms:
 
 rule merge_isoforms:
     input: expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq", part=PARTS)
-    output: "output/{top}.isoform_stats.tab"
+    output: "output/{top}.isoform_stats.tab", "output/{top}.all_sizes.quivered_hq.fastq"
     params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
-        python merge_isoforms.py {output} {input}
+        python merge_isoforms.py {output[0]} {input}
+        cat {input} > {output[1]}
         """
 
 rule ice_clustering:
@@ -153,7 +154,6 @@ rule gmap:
            rsync -arv --bwlimit=50000 --exclude "GRCh38.11" {GMAP_DB} /var/tmp/indices
            /net/eichler/vol5/home/mchaisso/software/bin/gmap --dir=/var/tmp/indices/gmap2 \
            --db={GMAP_NAME} -f samse -t 6 {input} > $TMPDIR/isoseq_{wildcards.type}.sam
-           rsync $TMPDIR/isoseq_{wildcards.type}.sam test.{wildcards.top}.{wildcards.type}.sam
            samtools view -Sb $TMPDIR/isoseq_{wildcards.type}.sam | samtools sort -@ 6 - $TMPDIR/{wildcards.type} -o > {output[0]}
            samtools index {output[0]}
         """
