@@ -5,7 +5,7 @@ shell.prefix("source env.tofu.cfg; ")
 configfile: "config.chimp.yaml"
 
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
-TOPGROUP = ["chimp"]
+TOPGROUP = config["group_name"]
 TYPES    = ["flnc", "nfl"]
 
 GMAP_DB = config["gmap_db"]
@@ -15,25 +15,27 @@ NAMES  = []
 LOOKUP = {}
 
 PARTS = []
-if os.path.exists(config["partitions"]):
-    with open(config["partitions"], "r") as infile:
+PARTITIONS = "mapped/{0}/partitions.{0}.bed".format(TOPGROUP)
+if os.path.exists(PARTITIONS):
+    with open(PARTITIONS, "r") as infile:
         for line in infile:
             chr, start, end, part = line.rstrip().split()[:4]
             if part not in PARTS:
                 PARTS.append(part)
 else:
-    print("Partition file {} does not exist. Continuing...".format(config["partitions"]))
+    print("Partition file {} does not exist. Continuing...".format(PARTITIONS))
 
-for i in TOPGROUP:
-    for j in config[i].keys():
-        LOOKUP[j] = i
-        NAMES.append(j)
+NAMES = config[TOPGROUP].keys()
+
+#for j in config[TOPGROUP].keys():
+#    LOOKUP[j] = i
+#    NAMES.append(j)
 
 if not os.path.exists("log"):
     os.makedirs("log")
 
-def _get_files_by_name(wildcards):
-    return config[LOOKUP[wildcards.names]][wildcards.names]
+#def _get_files_by_name(wildcards):
+#    return config[LOOKUP[wildcards.names]][wildcards.names]
 
 localrules: all, create_partitions
 
@@ -66,7 +68,7 @@ rule ice_clustering:
              nfl = "partitioned/{top}/{part}/isoseq_nfl.q40pass.cleaned.fastq",
              bas_fofn = "{top}/fasta_fofn_files/{top}.bas.fofn",
              fasta_fofn = "{top}/fasta_fofn_files/{top}.fasta.fofn"
-    output : ["{top}.{part}/combined/all_sizes.quivered_hq.%s" % ft for ft in ["fastq", "fastq.no5merge.collapsed.min_fl_2.rep.fq", "fastq.sorted.sam"]]
+    output : ["{top}.{part}/combined/all_sizes.quivered_hq.%s" % ft for ft in ["fastq", "fastq.no5merge.collapsed.min_fl_2.rep.fq", "fastq.sam"]]
     params : sge_opts = "-l mfree=12G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol5/home/bnelsj/src/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
         """set -eo pipefail
@@ -209,7 +211,7 @@ rule ccs:
     shell  : "{input.CCS} --numThreads=4 --minLength=100 --maxLength=10000 --minPasses=1 --reportFile={output[2]} {input.BAM} {output[0]}"
 
 rule bax2bam:
-    input  : BAX2BAM , FL=_get_files_by_name
+    input  : BAX2BAM , FL=lambda wc: config[TOPGROUP][wc.names]
     output : "cc2_bams/{names}.subreads.bam"
     params : sge_opts="-l mfree=15G -l h_rt=06:00:00 -q eichler-short.q"
     shell  : "{BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
