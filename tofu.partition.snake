@@ -2,7 +2,7 @@ import os
 
 shell.prefix("source env.tofu.cfg; ")
 
-configfile: "config.chimp.yaml"
+configfile: "config.tofu.yaml"
 
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
 TOPGROUP = config["group_name"]
@@ -40,7 +40,7 @@ if not os.path.exists("log"):
 localrules: all, create_partitions
 
 rule all:
-    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab", "all_sizes.quivered_hq.fastq", "all_sizes.quivered_lq.fastq"], top=TOPGROUP),
+    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.lq.tab", "isoform_stats.hq.tab", "all_sizes.quivered_hq.fastq", "all_sizes.quivered_lq.fastq"], top=TOPGROUP),
 
 rule merge_mapped_isoforms:
     input  : sam = expand("{{top}}.{part}/combined/all_sizes.quivered_{qual}.fastq.sam", part=PARTS, qual=["lq", "hq"]),
@@ -68,7 +68,7 @@ rule ice_clustering:
              nfl = "partitioned/{top}/{part}/isoseq_nfl.q40pass.cleaned.fastq",
              bas_fofn = "{top}/fasta_fofn_files/{top}.bas.fofn",
              fasta_fofn = "{top}/fasta_fofn_files/{top}.fasta.fofn"
-    output : ["{top}.{part}/combined/all_sizes.quivered_%s" % ft for ft in ["hq.fastq", "hq.fastq.no5merge.collapsed.min_fl_2.rep.fq", "hq.fastq.sam", "lq.fastq"]]
+    output : ["{top}.{part}/combined/all_sizes.quivered_%s" % ft for ft in ["hq.fastq", "hq.fastq.no5merge.collapsed.min_fl_2.rep.fq", "hq.fastq.sam", "lq.fastq", "lq.fastq.sam"]]
     params : sge_opts = "-l mfree=12G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol5/home/bnelsj/src/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
         """set -eo pipefail
