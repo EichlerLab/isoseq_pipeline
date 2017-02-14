@@ -2,4 +2,4 @@
 *.swp
 .snakemake
 log/
-*/
+*.[0-9]*/
