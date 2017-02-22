@@ -27,20 +27,14 @@ else:
 
 NAMES = config[TOPGROUP].keys()
 
-#for j in config[TOPGROUP].keys():
-#    LOOKUP[j] = i
-#    NAMES.append(j)
-
 if not os.path.exists("log"):
     os.makedirs("log")
-
-#def _get_files_by_name(wildcards):
-#    return config[LOOKUP[wildcards.names]][wildcards.names]
 
 localrules: all, create_partitions
 
 rule all:
     input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.lq.tab", "isoform_stats.hq.tab", "all_sizes.quivered_hq.fastq", "all_sizes.quivered_lq.fastq"], top=TOPGROUP),
+             "output/isoform.collapsed.abundance.tab"
 
 rule merge_mapped_isoforms:
     input: sam = expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.sam", part=PARTS),
@@ -51,6 +45,21 @@ rule merge_mapped_isoforms:
         """/net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools merge -h {input.header} {output[0]} {input.sam}
         /net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools sort {output[0]} > {output[1]}
         """
+
+rule merge_abundance:
+    input: expand("{top}.{part}/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.abundance.txt", top=TOPGROUP, part=PARTS)
+    output: "output/isoform.collapsed.abundance.tab"
+    params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
+    run:
+        import pandas as pd
+        df = pd.DataFrame(columns=["pbid", "partition", "count_fl", "count_nfl"])
+        for file in input:
+            part = file.split("/")[0].split(".")[-1]
+            df2 = pd.read_table(file, comment="#")
+            df2["partition"] = part
+            df2 = df2[["pbid", "partition", "count_fl", "count_nfl"]]
+            df = df.append(df2)
+        df.to_csv(output[0], sep="\t", index=False)
 
 rule merge_stats:
     input: expand("{top}.{part}/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.read_stat.txt", top=TOPGROUP, part=PARTS)
