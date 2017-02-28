@@ -92,7 +92,7 @@ rule ice_clustering:
              bas_fofn = "{top}/fasta_fofn_files/{top}.bas.fofn",
              fasta_fofn = "{top}/fasta_fofn_files/{top}.fasta.fofn"
     output : ["{top}.{part}/combined/all_sizes.quivered_%s" % ft for ft in ["hq.fastq", "hq.fastq.no5merge.collapsed.min_fl_2.rep.fq", "hq.fastq.sam", "lq.fastq", "hq.fastq.no5merge.collapsed.abundance.txt"]]
-    params : sge_opts = "-l mfree=12G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
+    params : sge_opts = "-l mfree=12G -l h_rt=10:0:0", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol5/home/bnelsj/src/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
         """set -eo pipefail
         tofu_wrap.py --nfl_fa {input.nfl} --bas_fofn {input.bas_fofn} -d {wildcards.top}.{wildcards.part} --use_sge \
