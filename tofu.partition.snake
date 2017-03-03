@@ -33,7 +33,7 @@ if not os.path.exists("log"):
 localrules: all, create_partitions
 
 rule all:
-    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.lq.tab", "isoform_stats.hq.tab", "all_sizes.quivered_hq.fastq", "all_sizes.quivered_lq.fastq"], top=TOPGROUP),
+    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.hq.tab", "all_sizes.quivered_hq.fastq", "collapsed_isoform_stats.hq.tab", "all_sizes.quivered_hq.collapsed.fq"], top=TOPGROUP),
              "output/isoform.collapsed.abundance.tab"
 
 rule merge_mapped_isoforms:
@@ -75,9 +75,20 @@ rule merge_stats:
             df = df.append(df2)
         df.to_csv(output[0], sep="\t", index=False)
 
+rule merge_collapsed_isoforms:
+    input: expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.min_fl_2.rep.fq", part=PARTS)
+    output: "output/{top}.collapsed_isoform_stats.hq.tab", "output/{top}.all_sizes.quivered_hq.collapsed.fq"
+    params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
+    shell:
+        """module load anaconda/20161130
+        export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
+        python merge_isoforms.py {output[0]} {wildcards.top}.*/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.min_fl_2.rep.fq
+        cat {input} > {output[1]}
+        """
+
 rule merge_isoforms:
-    input: expand("{{top}}.{part}/combined/all_sizes.quivered_{qual}.fastq", part=PARTS, qual=["hq"])
-    output: "output/{top}.isoform_stats.{qual}.tab", "output/{top}.all_sizes.quivered_{qual}.fastq"
+    input: expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq", part=PARTS)
+    output: "output/{top}.isoform_stats.hq.tab", "output/{top}.all_sizes.quivered_hq.fastq"
     params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
     shell:
         """module load anaconda/20161130
