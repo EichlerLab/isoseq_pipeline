@@ -27,13 +27,22 @@ else:
 
 NAMES = config[TOPGROUP].keys()
 
+EXTENSIONS = ["merged.sort.bam",
+              "isoform_stats.hq.tab",
+              "all_sizes.quivered_hq.fastq",
+              "collapsed_isoform_stats.hq.tab",
+              "all_sizes.quivered_hq.collapsed.fq",
+              "all_sizes.quivered_hq.no5merge.collapsed.min_fl_2.gff",
+              "all_sizes.quivered_hq.no5merge.collapsed.min_fl_2.filtered.gff"
+              ]
+
 if not os.path.exists("log"):
     os.makedirs("log")
 
 localrules: all, create_partitions
 
 rule all:
-    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.hq.tab", "all_sizes.quivered_hq.fastq", "collapsed_isoform_stats.hq.tab", "all_sizes.quivered_hq.collapsed.fq"], top=TOPGROUP),
+    input  : expand("output/{top}.{ext}", ext=EXTENSIONS, top=TOPGROUP),
              "output/isoform.collapsed.abundance.tab"
 
 rule merge_mapped_isoforms:
@@ -96,6 +105,24 @@ rule merge_isoforms:
         python merge_isoforms.py {output[0]} {wildcards.top}.*/combined/all_sizes.quivered_{wildcards.qual}.fastq
         cat {input} > {output[1]}
         """
+
+rule merge_gff:
+    input: unfiltered=expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.min_fl_2.gff", part=PARTS),
+           filtered=expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.min_fl_2.filtered.gff", part=PARTS)
+    output: "output/{top}.all_sizes.quivered_hq.no5merge.collapsed.min_fl_2.gff", "output/{top}.all_sizes.quivered_hq.no5merge.collapsed.min_fl_2.filtered.gff"
+    params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
+    run:
+        def merge_gff(outfn, infiles):
+            with open(outfn, "w") as outfile:
+                for fn in infiles:
+                    part = fn.split("/")[0].split(".")[1]
+                    with open(fn, "r") as infile:
+                        for line in infile:
+                            outline = line.rstrip().replace('_id "PB', '_id "%s.PB' % part)
+                            print(outline, file=outfile)
+
+        merge_gff(output[0], input.unfiltered)
+        merge_gff(output[1], input.filtered)
 
 rule ice_clustering:
     input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.cleaned.fastq",
