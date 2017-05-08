@@ -22,8 +22,6 @@ if os.path.exists(PARTITIONS):
             chr, start, end, part = line.rstrip().split()[:4]
             if part not in PARTS:
                 PARTS.append(part)
-else:
-    print("Partition file {} does not exist. Continuing...".format(PARTITIONS))
 
 NAMES = config[TOPGROUP].keys()
 
