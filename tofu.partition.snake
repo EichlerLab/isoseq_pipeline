@@ -27,29 +27,72 @@ else:
 
 NAMES = config[TOPGROUP].keys()
 
-#for j in config[TOPGROUP].keys():
-#    LOOKUP[j] = i
-#    NAMES.append(j)
+EXTENSIONS = ["merged.sort.bam",
+              "isoform_stats.hq.tab",
+              "all_sizes.quivered_hq.fastq",
+              "collapsed_isoform_stats.hq.tab",
+              "all_sizes.quivered_hq.collapsed.fq",
+              "all_sizes.quivered_hq.no5merge.collapsed.min_fl_2.gff",
+              "all_sizes.quivered_hq.no5merge.collapsed.min_fl_2.filtered.gff"
+              ]
 
 if not os.path.exists("log"):
     os.makedirs("log")
 
-#def _get_files_by_name(wildcards):
-#    return config[LOOKUP[wildcards.names]][wildcards.names]
-
 localrules: all, create_partitions
 
 rule all:
-    input  : expand("output/{top}.{ext}", ext=["merged.sort.bam", "isoform_stats.tab", "all_sizes.quivered_hq.fastq", "all_sizes.quivered_lq.fastq"], top=TOPGROUP),
+    input  : expand("output/{top}.{ext}", ext=EXTENSIONS, top=TOPGROUP),
+             "output/isoform.collapsed.abundance.tab"
 
 rule merge_mapped_isoforms:
-    input  : sam = expand("{{top}}.{part}/combined/all_sizes.quivered_{qual}.fastq.sam", part=PARTS, qual=["lq", "hq"]),
-             header = "mapped/{top}/isoseq_flnc.bam"
-    output : "output/{top}.merged.{qual}.bam", "output/{top}.merged.{qual}.sort.bam"
-    params : sge_opts = "-l mfree=1G -l h_rt=1:0:0"
-    shell :
+    input: sam = expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.sam", part=PARTS),
+           header = "mapped/{top}/isoseq_flnc.bam"
+    output: "output/{top}.merged.bam", "output/{top}.merged.sort.bam"
+    params: sge_opts = "-l mfree=1G -l h_rt=1:0:0"
+    shell:
         """/net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools merge -h {input.header} {output[0]} {input.sam}
         /net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools sort {output[0]} > {output[1]}
+        """
+
+rule merge_abundance:
+    input: expand("{top}.{part}/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.abundance.txt", top=TOPGROUP, part=PARTS)
+    output: "output/isoform.collapsed.abundance.tab"
+    params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
+    run:
+        import pandas as pd
+        df = pd.DataFrame(columns=["pbid", "partition", "count_fl", "count_nfl"])
+        for file in input:
+            part = file.split("/")[0].split(".")[-1]
+            df2 = pd.read_table(file, comment="#")
+            df2["partition"] = part
+            df2 = df2[["pbid", "partition", "count_fl", "count_nfl"]]
+            df = df.append(df2)
+        df.to_csv(output[0], sep="\t", index=False)
+
+rule merge_stats:
+    input: expand("{top}.{part}/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.read_stat.txt", top=TOPGROUP, part=PARTS)
+    output: "output/quivered_hq.collapsed.read_stat.tab"
+    params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
+    run:
+        import pandas as pd
+        df = pd.DataFrame(columns=["id", "partition", "length", "is_fl", "stat", "pbid"])
+        for file in input:
+            part = file.split("/")[0].split(".")[-1]
+            df2 = pd.read_table(file)
+            df2["partition"] = part
+            df = df.append(df2)
+        df.to_csv(output[0], sep="\t", index=False)
+
+rule merge_collapsed_isoforms:
+    input: expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.min_fl_2.rep.fq", part=PARTS)
+    output: "output/{top}.collapsed_isoform_stats.hq.tab", "output/{top}.all_sizes.quivered_hq.collapsed.fq"
+    params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
+    shell:
+        """module load anaconda/20161130
+        export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
+        python merge_isoforms.py {output[0]} {wildcards.top}.*/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.min_fl_2.rep.fq
+        cat {input} > {output[1]}
         """
 
 rule merge_isoforms:
@@ -63,13 +106,31 @@ rule merge_isoforms:
         cat {input} > {output[1]}
         """
 
+rule merge_gff:
+    input: unfiltered=expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.min_fl_2.gff", part=PARTS),
+           filtered=expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.min_fl_2.filtered.gff", part=PARTS)
+    output: "output/{top}.all_sizes.quivered_hq.no5merge.collapsed.min_fl_2.gff", "output/{top}.all_sizes.quivered_hq.no5merge.collapsed.min_fl_2.filtered.gff"
+    params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
+    run:
+        def merge_gff(outfn, infiles):
+            with open(outfn, "w") as outfile:
+                for fn in infiles:
+                    part = fn.split("/")[0].split(".")[1]
+                    with open(fn, "r") as infile:
+                        for line in infile:
+                            outline = line.rstrip().replace('_id "PB', '_id "%s.PB' % part)
+                            print(outline, file=outfile)
+
+        merge_gff(output[0], input.unfiltered)
+        merge_gff(output[1], input.filtered)
+
 rule ice_clustering:
-    input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.q40pass.cleaned.fastq",
-             nfl = "partitioned/{top}/{part}/isoseq_nfl.q40pass.cleaned.fastq",
+    input  : flnc = "partitioned/{top}/{part}/isoseq_flnc.cleaned.fastq",
+             nfl = "partitioned/{top}/{part}/isoseq_nfl.cleaned.fastq",
              bas_fofn = "{top}/fasta_fofn_files/{top}.bas.fofn",
              fasta_fofn = "{top}/fasta_fofn_files/{top}.fasta.fofn"
-    output : ["{top}.{part}/combined/all_sizes.quivered_%s" % ft for ft in ["hq.fastq", "hq.fastq.no5merge.collapsed.min_fl_2.rep.fq", "hq.fastq.sam", "lq.fastq"]]
-    params : sge_opts = "-l mfree=12G", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
+    output : ["{top}.{part}/combined/all_sizes.quivered_%s" % ft for ft in ["hq.fastq", "hq.fastq.no5merge.collapsed.min_fl_2.rep.fq", "hq.fastq.sam", "lq.fastq", "hq.fastq.no5merge.collapsed.abundance.txt"]]
+    params : sge_opts = "-l mfree=12G -l h_rt=10:0:0", max_jobs=20, blasr_procs=4, gcon_procs=2, output_basename="final_consensus_sequence.{top}.{part}.fasta"
     shell  : # Full path to actual tofu_wrap script: /net/eichler/vol5/home/bnelsj/src/VENV_TOFU/lib/python2.7/site-packages/pbtools.pbtranscript-2.2.3-py2.7-linux-x86_64.egg/EGG-INFO/scripts/tofu_wrap.py
         """set -eo pipefail
         tofu_wrap.py --nfl_fa {input.nfl} --bas_fofn {input.bas_fofn} -d {wildcards.top}.{wildcards.part} --use_sge \
@@ -106,20 +167,29 @@ rule fofn:
                 print(os.path.abspath(fn), file=out_fn)
 
 rule clean_fastq:
-    input: "partitioned/{top}/{part}/isoseq_{type}.q40pass.fastq"
-    output: "partitioned/{top}/{part}/isoseq_{type}.q40pass.cleaned.fastq"
+    input: "partitioned/{top}/{part}/isoseq_{type}.fastq"
+    output: "partitioned/{top}/{part}/isoseq_{type}.cleaned.fastq"
     params: sge_opts="-l h_rt=1:0:0 -l mfree=2G"
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
         python clean_fastq.py {input} {output}"""
 
+rule get_unmapped:
+    input: "mapped/{top}/isoseq_{type}.bam"
+    output: "partitioned/{top}/unmapped/isoseq_flnc.fastq"
+    params: sge_opts="-l h_rt=2:0:0 -l mfree=4G"
+    shell:
+        """module load anaconda/20161130
+        export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
+        python get_unmapped.py {input} {output}"""
+
 rule partition:
-    input  : mapped="mapped/{top}/isoseq_{type}.bam", partitions="mapped/{top}/partitions.{top}.bed"
-    output : "partitioned/{top}/{part}/isoseq_{type}.q40pass.fastq",
+    input: mapped="mapped/{top}/isoseq_{type}.bam", partitions="mapped/{top}/partitions.{top}.bed"
+    output: "partitioned/{top}/{part}/isoseq_{type}.fastq",
              "partitioned/{top}/{part}/regions_{type}.bed"
-    params : sge_opts="-l h_rt=0:30:0"
-    run    :
+    params: sge_opts="-l h_rt=0:30:0"
+    run:
         outfile = open(output[1], "w")
         with open(input.partitions, "r") as reader:
             for line in reader:
@@ -128,7 +198,7 @@ rule partition:
                     print(chr, start, end, sep="\t", file=outfile)
         outfile.close()
         shell("/net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools view \
-               -b -q40 {input.mapped} -U {output[0]}.q40fail.bam -L {output[1]} | \
+               -b -q40 {input.mapped} -L {output[1]} | \
                /net/gs/vol3/software/modules-sw/samtools/1.3/Linux/RHEL6/x86_64/bin/samtools fastq - > {output[0]}")
 
 rule create_partitions:
@@ -149,7 +219,7 @@ rule define_partition_regions:
 rule gmap:
     input  : "merged_trimmed/{top}/isoseq_{type}.fasta"
     output : "mapped/{top}/isoseq_{type}.bam", "mapped/{top}/isoseq_{type}.bam.bai"
-    params : sge_opts="-l mfree=8G -pe serial 6 -l h_rt=1:0:0:0"
+    params : sge_opts="-l mfree=8G -pe serial 6 -l h_rt=4:0:0:0"
     shell  :
         """mkdir -p /var/tmp/indices/gmap2
            mkdir -p /var/tmp/`whoami`
