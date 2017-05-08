@@ -2,7 +2,7 @@ import os
 
 shell.prefix("source env.tofu.cfg; ")
 
-configfile: "config.chimp.yaml"
+configfile: "config.tofu.yaml"
 
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
 TOPGROUP = config["group_name"]
