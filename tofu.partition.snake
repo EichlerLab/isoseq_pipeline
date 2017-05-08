@@ -169,7 +169,7 @@ rule fofn:
 rule clean_fastq:
     input: "partitioned/{top}/{part}/isoseq_{type}.fastq"
     output: "partitioned/{top}/{part}/isoseq_{type}.cleaned.fastq"
-    params: sge_opts="-l h_rt=1:0:0 -l mfree=2G"
+    params: sge_opts="-l h_rt=1:0:0 -l mfree=10G"
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
