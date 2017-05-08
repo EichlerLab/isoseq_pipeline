@@ -53,7 +53,7 @@ rule merge_mapped_isoforms:
         """
 
 rule merge_isoforms:
-    input: expand("{{top}}.{part}/combined/all_sizes.quivered_{qual}.fastq", part=PARTS, qual=["lq", "hq"])
+    input: expand("{{top}}.{part}/combined/all_sizes.quivered_{{qual}}.fastq", part=PARTS)
     output: "output/{top}.isoform_stats.{qual}.tab", "output/{top}.all_sizes.quivered_{qual}.fastq"
     params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
     shell:
