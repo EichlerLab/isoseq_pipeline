@@ -39,7 +39,7 @@ EXTENSIONS = ["merged.sort.bam",
 if not os.path.exists("log"):
     os.makedirs("log")
 
-localrules: all, create_partitions
+localrules: all, create_partitions, get_flnc_nfl
 
 rule all:
     input  : expand("output/{top}.{ext}", ext=EXTENSIONS, top=TOPGROUP),
@@ -229,6 +229,9 @@ rule gmap:
            samtools view -Sb $TMPDIR/isoseq_{wildcards.type}.sam | samtools sort -@ 6 - $TMPDIR/{wildcards.type} -o > {output[0]}
            samtools index {output[0]}
         """
+
+rule get_flnc_nfl:
+    input: expand("merged_trimmed/{top}/isoseq_{type}.fasta.fai", top=TOPGROUP, type=["flnc", "nfl"])
 
 rule catlens:
     input  : STATS=expand("primer_trimmed/{names}/isoseq_flnc.fasta.fai", names=NAMES)
