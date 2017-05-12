@@ -22,8 +22,6 @@ if os.path.exists(PARTITIONS):
             chr, start, end, part = line.rstrip().split()[:4]
             if part not in PARTS:
                 PARTS.append(part)
-else:
-    print("Partition file {} does not exist. Continuing...".format(PARTITIONS))
 
 NAMES = config[TOPGROUP].keys()
 
@@ -96,8 +94,8 @@ rule merge_collapsed_isoforms:
         """
 
 rule merge_isoforms:
-    input: expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq", part=PARTS)
-    output: "output/{top}.isoform_stats.hq.tab", "output/{top}.all_sizes.quivered_hq.fastq"
+    input: expand("{{top}}.{part}/combined/all_sizes.quivered_{{qual}}.fastq", part=PARTS)
+    output: "output/{top}.isoform_stats.{qual}.tab", "output/{top}.all_sizes.quivered_{qual}.fastq"
     params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
     shell:
         """module load anaconda/20161130
@@ -169,7 +167,7 @@ rule fofn:
 rule clean_fastq:
     input: "partitioned/{top}/{part}/isoseq_{type}.fastq"
     output: "partitioned/{top}/{part}/isoseq_{type}.cleaned.fastq"
-    params: sge_opts="-l h_rt=1:0:0 -l mfree=2G"
+    params: sge_opts="-l h_rt=1:0:0 -l mfree=10G"
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
@@ -205,16 +203,16 @@ rule create_partitions:
     input: expand("mapped/{top}/partitions.{top}.bed", top=TOPGROUP)
 
 rule define_partition_regions:
-    input: "mapped/{top}/isoseq_flnc.bam"
+    input: "mapped/{top}/isoseq_flnc.bam", config["wgac"]
     output: "mapped/{top}/partitions.{top}.bed"
-    params: sge_opts="-l mfree=4G -l h_rt=1:0:0", wgac=config["wgac"]
+    params: sge_opts="-l mfree=4G -l h_rt=1:0:0"
     shadow: True
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
         samtools view -b {input} -q 40 | bedtools bamtobed > {wildcards.top}.isoseq_flnc.sorted.bed
         bedtools merge -i {wildcards.top}.isoseq_flnc.sorted.bed -c 4 -o count > {wildcards.top}.isoseq_flnc.merged.bed
-        python partition_reads_by_segdups.py {params.wgac} {wildcards.top}.isoseq_flnc.merged.bed {output} --count_threshold 500"""
+        python partition_reads_by_segdups.py {input[1]} {wildcards.top}.isoseq_flnc.merged.bed {output} --count_threshold 500"""
 
 rule gmap:
     input  : "merged_trimmed/{top}/isoseq_{type}.fasta"
