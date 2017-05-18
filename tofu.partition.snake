@@ -232,10 +232,10 @@ rule get_flnc_nfl:
     input: expand("merged_trimmed/{top}/isoseq_{type}.fasta.fai", top=TOPGROUP, type=["flnc", "nfl"])
 
 rule catlens:
-    input  : STATS=expand("primer_trimmed/{names}/isoseq_flnc.fasta.fai", names=NAMES)
+    input  : "merged_trimmed/{top}/isoseq_{type}.fasta"
     output : "merged_trimmed/{top}/isoseq_{type}.fasta.fai"
     params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
-    shell  : "cat {input.STATS} >{output}"
+    shell  : "samtools faidx {input}"
 
 rule catfa:
     input  : FA=expand("primer_trimmed/{names}/isoseq_{{type}}.fasta", names=NAMES),
