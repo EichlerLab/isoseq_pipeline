@@ -4,6 +4,8 @@ shell.prefix("source env.tofu.cfg; ")
 
 configfile: "config.tofu.yaml"
 
+assert config["data_type"] in ["RSII", "sequel"]
+
 BAX2BAM  = "/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/bax2bam"
 TOPGROUP = config["group_name"]
 TYPES    = ["flnc", "nfl"]
@@ -256,33 +258,56 @@ rule lens:
     params : sge_opts="-l mfree=1G -l h_rt=02:00:00 -q eichler-short.q"
     shell  :  "samtools faidx {input}"
 
-rule trim:
-    input  : FAS="post_pbccs_fasta/{names}.fa", BCC="scripts/do_barcode.sh"
-    output : "primer_trimmed/{names}/isoseq_flnc.fasta", "primer_trimmed/{names}/isoseq_nfl.fasta"
-    params : sge_opts="-l mfree=4G -l h_rt=4:00:00 -q eichler-short.q -pe serial 12"
-    shadow : True
-    shell  : 
-        "python scripts/fluid_barcode_identification.py --reads_fn {input.FAS} "
-                "--primer_fn_forward data/custom_barcode_primers_forward.fa "
-                "--primer_fn_reverse data/custom_barcode_primers_reverse.fa "
-                "--ncpus 12 "
-                "--flnc_fn_out {output[0]} "
-                "--nfl_fn_out {output[1]}"
+if config["data_type"] == "RSII":
+    rule trim:
+        input  : FAS="post_pbccs_fasta/{names}.fa", BCC="scripts/do_barcode.sh"
+        output : "primer_trimmed/{names}/isoseq_flnc.fasta", "primer_trimmed/{names}/isoseq_nfl.fasta"
+        params : sge_opts="-l mfree=4G -l h_rt=4:00:00 -q eichler-short.q -pe serial 12"
+        shadow : True
+        shell  : 
+            "python scripts/fluid_barcode_identification.py --reads_fn {input.FAS} "
+                    "--primer_fn_forward data/custom_barcode_primers_forward.fa "
+                    "--primer_fn_reverse data/custom_barcode_primers_reverse.fa "
+                    "--ncpus 12 "
+                    "--flnc_fn_out {output[0]} "
+                    "--nfl_fn_out {output[1]}"
 
-rule bam2fa:
-    input  : BAM="pbccs_results/{names}.pbccs.bam", XML="pbccs_results/{names}.pbccs.consensusreadset.xml"
-    output : "post_pbccs_fasta/{names}.fa"
-    params : sge_opts="-l mfree=3G -l h_rt=48:00:00 -q eichler-short.q"
-    shell  : "bamtools convert -in {input.BAM} -format fasta > {output}"
+    rule bam2fa:
+        input  : BAM="pbccs_results/{names}.pbccs.bam", XML="pbccs_results/{names}.pbccs.consensusreadset.xml"
+        output : "post_pbccs_fasta/{names}.fa"
+        params : sge_opts="-l mfree=3G -l h_rt=48:00:00 -q eichler-short.q"
+        shell  : "bamtools convert -in {input.BAM} -format fasta > {output}"
 
-rule ccs:
-    input  : BAM="cc2_bams/{names}.subreads.bam", CCS="/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/ccs"
-    output : "pbccs_results/{names}.pbccs.bam", "pbccs_results/{names}.pbccs.consensusreadset.xml", "pbccs_results/{names}.ccs_report.txt"
-    params : sge_opts="-l mfree=8G -l h_rt=48:00:00 -q eichler-short.q -pe serial 4"
-    shell  : "{input.CCS} --numThreads=4 --minLength=100 --maxLength=10000 --minPasses=1 --reportFile={output[2]} {input.BAM} {output[0]}"
+    rule ccs:
+        input  : BAM="cc2_bams/{names}.subreads.bam", CCS="/net/eichler/vol18/zevk/great_apes/iso_seq/cc2_analysis/pitchfork/deployment/bin/ccs"
+        output : "pbccs_results/{names}.pbccs.bam", "pbccs_results/{names}.pbccs.consensusreadset.xml", "pbccs_results/{names}.ccs_report.txt"
+        params : sge_opts="-l mfree=8G -l h_rt=48:00:00 -q eichler-short.q -pe serial 4"
+        shell  : "{input.CCS} --numThreads=4 --minLength=100 --maxLength=10000 --minPasses=1 --reportFile={output[2]} {input.BAM} {output[0]}"
 
-rule bax2bam:
-    input  : BAX2BAM , FL=lambda wc: config[TOPGROUP][wc.names]
-    output : "cc2_bams/{names}.subreads.bam"
-    params : sge_opts="-l mfree=15G -l h_rt=06:00:00 -q eichler-short.q"
-    shell  : "{BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
+    rule bax2bam:
+        input  : BAX2BAM , FL=lambda wc: config[TOPGROUP][wc.names]
+        output : "cc2_bams/{names}.subreads.bam"
+        params : sge_opts="-l mfree=15G -l h_rt=06:00:00 -q eichler-short.q"
+        shell  : "{BAX2BAM} -o cc2_bams/{wildcards.names} {input.FL}"
+
+else:
+    rule trim:
+        input  : CCS="pbccs_results/{names}.pbccs.bam", primers="data/custom_primers.fasta"
+        output : "primer_trimmed/{names}/isoseq_flnc.fasta", "primer_trimmed/{names}/isoseq_nfl.fasta"
+        params : sge_opts="-l mfree=4G -l h_rt=1:0:0:0 -q eichler-short.q -pe serial 20"
+        shadow : True
+        shell  : 
+            "pbtranscript classify -p {input.primers} "
+                "--ncpus 20 "
+                "-d primer_trimmed/{wildcards.names} "
+                "--flnc {output[0]} "
+                "--nfl {output[1]} "
+                "{input.CCS} isoseq_draft.fasta"
+
+    rule ccs:
+        input  : BAM="cc2_bams/{names}.subreads.bam", CCS="/net/eichler/vol24/projects/sequencing/pacbio/smrtlink/smrtcmds/bin/ccs"
+        output : "pbccs_results/{names}.pbccs.bam", "pbccs_results/{names}.pbccs.consensusreadset.xml", "pbccs_results/{names}.ccs_report.txt"
+        params : sge_opts="-l mfree=8G -l h_rt=48:00:00 -q eichler-short.q -pe serial 16"
+        shell  : "{input.CCS} --numThreads=16 --minLength=100 --maxLength=10000 --minPasses=1 --reportFile={output[2]} {input.BAM} {output[0]}"
+
+

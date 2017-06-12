@@ -7,6 +7,8 @@ wgac: gorilla.genomicSuperDup.sort.bed.gz
 
 group_name: gorilla
 
+data_type: sequel # Must be sequel or RSII
+
 gorilla:
     gorilla0:    /net/eichler/vol24/projects/sequencing/pacbio/backups/incoming/160714_EEE_JU_PBC_20kb_P6v2_768/C01_1/Analysis_Results/m160715_083918_42134_c101034492550000001823250511171692_s1_p0.1.bax.h5
     gorilla1:    /net/eichler/vol24/projects/sequencing/pacbio/backups/incoming/160714_EEE_JU_PBC_20kb_P6v2_768/C01_1/Analysis_Results/m160715_083918_42134_c101034492550000001823250511171692_s1_p0.2.bax.h5
