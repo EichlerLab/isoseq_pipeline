@@ -69,7 +69,7 @@ def parseAngelFastaIds(orf_fasta_infile) :
         if name in name2cds :
             print "ERROR, name was already seen before:", name, ". Using only the longest ORF."
             if cds_end - cds_start < name2cds[name][1] - name2cds[name][0] :
-                return name2cds
+                continue
         name2cds[name] = (cds_start, cds_end)
 
     input_handle.close()
