@@ -119,6 +119,7 @@ if __name__=="__main__" :
         outF.write(line)
         line_type,chrom,start,end,strand,name,angel_name,lineS = ParseAngelGffLine(line)
         if line_type == 'transcript' :
+            genomic_cds_start = -1
             if angel_name not in name2cds :
                 print("skipping transcript, name in gff does not exist in input fasta", angel_name)
                 cds_start = -1
