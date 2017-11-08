@@ -21,32 +21,35 @@ rule all:
 rule predict:
     input: fasta="output/{top}.all_sizes.quivered_hq.fasta", pickle="angel/{top}.flnc.training.final.classifier.pickle"
     output: ["angel/{top}.final.smart_ORFs.ANGEL.%s" % x for x in ["cds", "utr", "pep"]]
-    params: sge_opts="-pe serial 8 -l h_rt=2:0:0", output_prefix="{top}.final.smart_ORFs"
+    params: sge_opts="-pe serial 8 -l h_rt=2:0:0", output_prefix="{top}.final.smart_ORFs", angel_dir=config["angel_dir"]
     shell:
         """pushd angel
-           angel_predict.py ../{input.fasta} ../{input.pickle} {params.output_prefix} --cpus 8 \
+           {params.angel_dir}/angel_predict.py ../{input.fasta} ../{input.pickle} {params.output_prefix} --cpus 8 \
                             --min_angel_aa_length 300 --min_dumb_aa_length 300 --use_rev_strand"""
 
 rule train:
     input: ["angel/{top}.flnc.training.final.%s" % x for x in ["cds", "utr"]]
     output: "angel/{top}.flnc.training.final.classifier.pickle"
-    params: sge_opts="-pe serial 8 -l h_rt=2:0:0"
+    params: sge_opts="-pe serial 8 -l h_rt=2:0:0", angel_dir=config["angel_dir"]
     shell:
-        "angel_train.py {input} {output} --cpus 8"
+        "{params.angel_dir}/angel_train.py {input} {output} --cpus 8"
 
 rule make_training_set:
     input: ["angel/{top}.flnc.dumb_ORFs.final.%s" % x for x in ["cds", "utr", "pep"]]
     output: ["angel/{top}.flnc.training.final.%s" % x for x in ["cds", "utr", "pep"]]
-    params: sge_opts="-pe serial 8 -l h_rt=2:0:0", input_prefix="angel/{top}.flnc.dumb_ORFs.final", output_prefix="angel/{top}.flnc.training.final"
+    params: sge_opts="-pe serial 8 -l h_rt=2:0:0",
+            input_prefix="angel/{top}.flnc.dumb_ORFs.final",
+            output_prefix="angel/{top}.flnc.training.final",
+            angel_dir=config["angel_dir"]
     shell:
-        "angel_make_training_set.py {params.input_prefix} {params.output_prefix} --random --cpus 8"
+        "{params.angel_dir}/angel_make_training_set.py {params.input_prefix} {params.output_prefix} --random --cpus 8"
 
 rule dumb_predict:
     input: "output/{top}.all_sizes.quivered_hq.fasta"
     output: ["angel/{top}.flnc.dumb_ORFs.final.%s" % x for x in ["cds", "utr", "pep"]] 
-    params: sge_opts="-pe serial 8 -l h_rt=2:0:0", output_prefix="angel/{top}.flnc.dumb_ORFs"
+    params: sge_opts="-pe serial 8 -l h_rt=2:0:0", output_prefix="angel/{top}.flnc.dumb_ORFs", angel_dir=config["angel_dir"]
     shell:
-        "dumb_predict.py {input} {params.output_prefix} --min_aa_length 300 --use_rev_strand --cpus 8"
+        "{params.angel_dir}/dumb_predict.py {input} {params.output_prefix} --min_aa_length 300 --use_rev_strand --cpus 8"
 
 rule fq2fa:
     input: "output/{top}.all_sizes.quivered_hq.fastq"

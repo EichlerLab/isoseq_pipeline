@@ -1,4 +1,6 @@
 ---
 
+angel_dir: ~bnelsj/src/ANGEL
+
 replicates:
-    - adult_brain
+    - chimp
