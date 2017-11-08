@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from optparse import OptionParser
 from Bio import SeqIO
 import re
@@ -28,7 +30,7 @@ debug =True
 def getAngelNameAndCdsRegion(angel_fasta_id) :
     regionM = re.compile('.*(PB\.\d+\.\d+).* pos:(\d+)-(\d+)').match(angel_fasta_id)
     if regionM is None :
-        print "Malformatted region " + angel_fasta_id
+        print("Malformatted region " + angel_fasta_id)
         sys.exit(0)
     m = regionM.groups()
     return m[0], int(m[1]), int(m[2])
@@ -37,7 +39,7 @@ def getAngelNameAndCdsRegion(angel_fasta_id) :
 def getAngelName(fasta_id):
     regionM = re.compile('.*(PB\.\d+\.\d+).*').match(fasta_id)
     if regionM is None :
-        print "Malformatted region " + fasta_id
+        print("Malformatted region " + fasta_id)
         sys.exit(0)
     m = regionM.groups()
     return m[0]
@@ -53,7 +55,7 @@ def ParseAngelGffLine(angel_gff_line):
     name = lineS[8]
     angel_nameM = re.compile('.*(PB\.\d+\.\d+).*').match(name) 
     if angel_nameM is None :
-        print "Malformatted gff name", name
+        print("Malformatted gff name", name)
         sys.exit(0)
     angel_name = angel_nameM.groups()[0]
     return (line_type,chrom,start,end,strand,name,angel_name,lineS)
@@ -67,7 +69,7 @@ def parseAngelFastaIds(orf_fasta_infile) :
 #        print seq.description
         name,cds_start,cds_end = getAngelNameAndCdsRegion(seq.description)
         if name in name2cds :
-            print "ERROR, name was already seen before:", name, ". Using only the longest ORF."
+            print("ERROR, name was already seen before:", name, ". Using only the longest ORF.")
             if cds_end - cds_start < name2cds[name][1] - name2cds[name][0] :
                 continue
         name2cds[name] = (cds_start, cds_end)
@@ -81,7 +83,7 @@ def parseFastaLengths(transcripts_fasta_infile) :
     for seq in SeqIO.parse(input_handle, "fasta") :
         name = getAngelName(seq.description)
         if name in name2len :
-            print "ERROR, name was already seen before", name
+            print("ERROR, name was already seen before", name)
         name2len[name] = len(seq.seq)
     
 #    print name2len
@@ -98,18 +100,18 @@ if __name__=="__main__" :
     (o,args)=opts.parse_args()    
 
 
-    print "*** reading orf_fasta_infile ***"
+    print("*** reading orf_fasta_infile ***")
     name2cds = parseAngelFastaIds(o.orf_fasta_infile)
 #    print name2cds
     
-    print "*** reading transcripts_fasta_infile ***"
+    print("*** reading transcripts_fasta_infile ***")
     name2len = parseFastaLengths(o.transcripts_fasta_infile)
     
     cds_start = -1
     cds_end = -1
     cds_len = -1
 
-    print "*** reading gff ***"
+    print("*** reading gff ***")
 
     gff_inF = open(o.gff_infile, 'r')
     outF = open(o.outfile, 'w')
@@ -117,33 +119,38 @@ if __name__=="__main__" :
         outF.write(line)
         line_type,chrom,start,end,strand,name,angel_name,lineS = ParseAngelGffLine(line)
         if line_type == 'transcript' :
+            genomic_cds_start = -1
             if angel_name not in name2cds :
-                print "skipping transcript, name in gff does not exist in input fasta", angel_name
+                print("skipping transcript, name in gff does not exist in input fasta", angel_name)
                 cds_start = -1
                 cds_end = -1
                 continue
             cds_start, cds_end = name2cds[angel_name]
             cds_len = cds_end - cds_start
-            # convert from seq position to real coordinates based on transcript start
             if strand == "-" :
-                cds_start = start + name2len[angel_name] - cds_end
+                # convert from seq position to real coordinates based on transcript start
+                genomic_cds_start = start + name2len[angel_name] - cds_end
             else :
-                cds_start = cds_start + start - 1
+                genomic_cds_start = -1
             cds_end = -1
                 
         if line_type == 'exon' :
-            exon_cds_start = max(start, cds_start)
-            cds_end = exon_cds_start + cds_len
-            exon_cds_end = min(end, cds_end)
-
-            if exon_cds_start <= exon_cds_end : # the exon overlaps the cds
-#                print exon_cds_start, "<=", exon_cds_end
-                lineS[3] = str(exon_cds_start)
-                lineS[4] = str(exon_cds_end)
-                lineS[2] = "CDS"
-                outF.write("\t".join(lineS) + "\n")
-                exon_cds_len = exon_cds_end - exon_cds_start + 1
-                cds_len -= exon_cds_len
+            exon_length = end - start + 1
+            if cds_start <= exon_length:
+                if strand == "+":
+                    # convert from seq position to real coordinates based on transcript start
+                    genomic_cds_start = cds_start + start - 1
+                exon_cds_start = max(start, genomic_cds_start)
+                cds_end = exon_cds_start + cds_len
+                exon_cds_end = min(end, cds_end)
+                if exon_cds_start < exon_cds_end:
+                    lineS[3] = str(exon_cds_start)
+                    lineS[4] = str(exon_cds_end)
+                    lineS[2] = "CDS"
+                    outF.write("\t".join(lineS) + "\n")
+                    exon_cds_len = exon_cds_end - exon_cds_start + 1
+                    cds_len -= exon_cds_len
+            cds_start = max(0, cds_start - exon_length)
 
     
     outF.close()
