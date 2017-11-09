@@ -21,7 +21,7 @@ rule all:
 rule predict:
     input: fasta="output/{top}.all_sizes.quivered_hq.fasta", pickle="angel/{top}.flnc.training.final.classifier.pickle"
     output: ["angel/{top}.final.smart_ORFs.ANGEL.%s" % x for x in ["cds", "utr", "pep"]]
-    params: sge_opts="-pe serial 8 -l h_rt=2:0:0", output_prefix="{top}.final.smart_ORFs", angel_dir=config["angel_dir"]
+    params: sge_opts="-pe serial 8 -l h_rt=1:0:0:0", output_prefix="{top}.final.smart_ORFs", angel_dir=config["angel_dir"]
     shell:
         """pushd angel
            angel_predict.py ../{input.fasta} ../{input.pickle} {params.output_prefix} --cpus 8 \
