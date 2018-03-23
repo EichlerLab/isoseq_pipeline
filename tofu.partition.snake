@@ -45,6 +45,13 @@ rule all:
     input  : expand("output/{top}.{ext}", ext=EXTENSIONS, top=TOPGROUP),
              "output/isoform.collapsed.abundance.tab"
 
+rule clean:
+    shell:
+        "rm -rf {TOPGROUP}.*/*kb_part*/tmp* {TOPGROUP}.*/*kb_part*/log "
+        "{TOPGROUP}.*/*kb_part*/input* {TOPGROUP}.*/*kb_part*/quivered "
+        "{TOPGROUP}.*/*kb_part*/ref_consensus* {TOPGROUP}.*/*kb_part*/output/map_noFL "
+        "{TOPGROUP}.*/*kb_part*/output/tmp*"
+
 rule merge_mapped_isoforms:
     input: sam = expand("{{top}}.{part}/combined/all_sizes.quivered_hq.fastq.sam", part=PARTS),
            header = "mapped/{top}/isoseq_flnc.bam"
@@ -91,7 +98,7 @@ rule merge_collapsed_isoforms:
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
-        python merge_isoforms.py {output[0]} {wildcards.top}.*/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.min_fl_2.rep.fq
+        python scripts/merge_isoforms.py {output[0]} {wildcards.top}.*/combined/all_sizes.quivered_hq.fastq.no5merge.collapsed.min_fl_2.rep.fq
         cat {input} > {output[1]}
         """
 
@@ -102,7 +109,7 @@ rule merge_isoforms:
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
-        python merge_isoforms.py {output[0]} {wildcards.top}.*/combined/all_sizes.quivered_{wildcards.qual}.fastq
+        python scripts/merge_isoforms.py {output[0]} {wildcards.top}.*/combined/all_sizes.quivered_{wildcards.qual}.fastq
         cat {input} > {output[1]}
         """
 
@@ -173,7 +180,7 @@ rule clean_fastq:
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
-        python clean_fastq.py {input} {output}"""
+        python scripts/clean_fastq.py {input} {output}"""
 
 rule get_unmapped:
     input: "mapped/{top}/isoseq_{type}.bam"
@@ -182,7 +189,7 @@ rule get_unmapped:
     shell:
         """module load anaconda/20161130
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
-        python get_unmapped.py {input} {output}"""
+        python scripts/get_unmapped.py {input} {output}"""
 
 rule partition:
     input: mapped="mapped/{top}/isoseq_{type}.bam", partitions="mapped/{top}/partitions.{top}.bed"
@@ -214,7 +221,7 @@ rule define_partition_regions:
         export PATH=/net/eichler/vol2/eee_shared/modules/anaconda3/envs/py3.20161130/bin/:$PATH
         samtools view -b {input[0]} -q 40 | bedtools bamtobed > {wildcards.top}.isoseq_flnc.sorted.bed
         bedtools merge -i {wildcards.top}.isoseq_flnc.sorted.bed -c 4 -o count > {wildcards.top}.isoseq_flnc.merged.bed
-        python partition_reads_by_segdups.py {input[1]} {wildcards.top}.isoseq_flnc.merged.bed {output} --count_threshold 500"""
+        python scripts/partition_reads_by_segdups.py {input[1]} {wildcards.top}.isoseq_flnc.merged.bed {output} --count_threshold 500"""
 
 rule gmap:
     input  : "merged_trimmed/{top}/isoseq_{type}.fasta"
